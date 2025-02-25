@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Stream</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body>
+    <div class="sidebar">
+        <img src="static/sophic-logo.png" alt="Sophic Logo">
+
+        <div class="horizontal-line"></div>
+
+        <nav>
+            <ul>
+                <li><a href="{{ url_for('smart_glasses_management') }}">
+                    <img src="static/icons/smart-glasses.png" alt="Smart Glasses Icon">Smart Glasses
+                </a></li>
+                <li><a href="{{ url_for('room_management') }}">
+                    <img src="static/icons/room.png" alt="Room Icon">Room
+                </a></li>
+                <li><a href="{{ url_for('live_stream_management') }}" style="background-color: #ce3c77;">
+                    <img src="static/icons/live-stream.png" alt="Live Stream Icon">Live Stream
+                </a></li>
+                <li><a href="{{ url_for('procedure_management') }}">
+                    <img src="static/icons/procedure.png" alt="Procedure Icon">Procedure
+                </a></li>
+                <li><a href="{{ url_for('inference_engine_management') }}">
+                    <img src="static/icons/inference-engine.png" alt="Inference Engine Icon">Inference Engine
+                </a></li>
+            </ul>
+        </nav>
+
+    </div>
+
+    <div class="main-content">
+        <span class="page-location">Pages / Live Stream</span>
+        <h1>Live Stream</h1>
+
+        <section>
+            <div id="video-container">
+                {% for room_name, details in device.items() %}
+                <div class="section-gap">
+                    <h3 style="color: white;">Room: {{ room_name }}</h3>
+                    <h3>SOP: {{ details.sop_name }}</h3>
+                    <h3>Cameras:</h3>
+                    <ul>
+                        {% for camera in details.cameras %}
+                            <li>{{ camera.device_name }}</li>
+                        {% endfor %}
+                    </ul>
+                    
+                    {% for camera in details.cameras %}
+                        <video controls autoplay width="640" height="360" id="video_{{ room_name }}_{{ camera.device_name }}"></video>
+                        <script>
+                            document.addEventListener("DOMContentLoaded", () => {
+                                const videoElement = document.getElementById("video_{{ room_name }}_{{ camera.device_name }}");
+                                const hlsUrl = `http://192.168.1.48:8888/{{ camera.device_name }}/index.m3u8`;
+
+                                if (Hls.isSupported()) {
+                                    const hls = new Hls();
+                                    hls.loadSource(hlsUrl);
+                                    hls.attachMedia(videoElement);
+                                    hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                                        videoElement.play();
+                                    });
+                                    hls.on(Hls.Events.ERROR, function (event, data) {
+                                        console.error(`HLS error for {{ camera.device_name }}:`, data);
+                                        if (data.fatal) {
+                                            switch (data.type) {
+                                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                                    console.error("Network error encountered");
+                                                    hls.startLoad();
+                                                    break;
+                                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                                    console.error("Media error encountered");
+                                                    hls.recoverMediaError();
+                                                    break;
+                                                default:
+                                                    hls.destroy();
+                                                    break;
+                                            }
+                                        }
+                                    });
+                                } else if (videoElement.canPlayType("application/vnd.apple.mpegurl")) {
+                                    videoElement.src = hlsUrl;
+                                    videoElement.addEventListener("loadedmetadata", function () {
+                                        videoElement.play();
+                                    });
+                                    videoElement.addEventListener("error", function () {
+                                        console.error(`Error playing video for {{ camera.device_name }}:`, videoElement.error);
+                                    });
+                                }
+                            });
+                        </script>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            </div>
+        </section>
+    </div>
+
+
+</body>
+</html>

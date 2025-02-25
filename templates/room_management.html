@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <div class="sidebar">
+        <img src="static/sophic-logo.png" alt="Sophic Logo">
+
+        <div class="horizontal-line"></div>
+
+        <nav>
+            <ul>
+                <li><a href="{{ url_for('smart_glasses_management') }}">
+                    <img src="static/icons/smart-glasses.png" alt="Smart Glasses Icon">Smart Glasses
+                </a></li>
+                <li><a href="{{ url_for('room_management') }}" style="background-color: #ce3c77;">
+                    <img src="static/icons/room.png" alt="Room Icon">Room
+                </a></li>
+                <li><a href="{{ url_for('live_stream_management') }}">
+                    <img src="static/icons/live-stream.png" alt="Live Stream Icon">Live Stream
+                </a></li>
+                <li><a href="{{ url_for('procedure_management') }}">
+                    <img src="static/icons/procedure.png" alt="Procedure Icon">Procedure
+                </a></li>
+                <li><a href="{{ url_for('inference_engine_management') }}">
+                    <img src="static/icons/inference-engine.png" alt="Inference Engine Icon">Inference Engine
+                </a></li>
+            </ul>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <span class="page-location">Pages / Room </span>
+        <h1>Room</h1>
+
+        <section class="section-gap">
+            <h2>Existing Rooms</h2>
+            <button style="margin-bottom: 5px;" id="btnAdd" class="add-room-btn btn-green">
+                <i class="fa fa-plus"></i> 
+                + Add Room
+            </button>
+        </section>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Room Name</th>
+                    <th>Sop Name</th>
+                    <th>Device Name</th>
+                    <th>Number of Camera</th>
+                    <th style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for room in rooms %}
+                <tr>
+                    <td>{{ room.room_name }}</td>
+                    <td>{{ room.sop_name }}</td>
+                    <td>{{ room.device_name }}</td>
+                    <td style="text-align: center;">{{ room.number_of_camera }}</td>
+                    <td>
+                        <button class="btnRemove add-room-btn" 
+                                data-room-name="{{ room.room_name }}" 
+                                data-sop-name="{{ room.sop_name }}"
+                                data-device-name="{{ room.device_name }}"  
+                                data-number-of-camera="{{ room.number_of_camera }}" >
+                            <img src="static/icons/remove.png" alt="Remove">
+                        </button>
+                    
+                        <button class="btnEdit add-room-btn" 
+                                data-room-name="{{ room.room_name }}" 
+                                data-sop-name="{{ room.sop_name }}"
+                                data-device-name="{{ room.device_name }}"  
+                                data-number-of-camera="{{ room.number_of_camera }}" >
+                            <img src="static/icons/edit.png" alt="Edit">
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4">No room found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <form id="roomForm" style="display:none;">
+            <h2>Create New Room</h2>
+            <label for="roomName" style="font-weight: bold;">Room Name</label>
+            <input type="text" id="room_name" name="room_name" required><br><br>
+
+            <label for="cameraId" style="font-weight: bold;">Camera ID</label><br>
+            <div id="cameraId">
+                {% for device in devices %}
+                <input type="checkbox" name="camera_id" value="{{ device['camera_id'] }}">
+                {{ device['device_name'] }}<br>
+                {% endfor %}
+            </div><br><br>
+                        
+            <label for="sopId" style="font-weight: bold;">SOP ID</label>
+            <div id="sopId">
+                {% for sops in sops %}
+                <input type="checkbox" name="sop_id" value="{{ sops['sop_id'] }}">
+                {{ sops['sop_name'] }}<br>
+                {% endfor %}
+            </div><br><br>
+
+            <button class="btn-green" type="submit" class="btn1">+ Submit</button>
+            <button class="btn-blue" type="button" id="cancel_add">✖ Cancel</button>
+        </form><br>
+
+        <form id="editRoomForm" style="display:none;">
+            <h2>Edit Room Information</h2>
+            <label for="roomName" style="font-weight: bold;">Room Name</label>
+            <input type="text" id="edit_room_name" name="room_name" value="{{ room_name }}" readonly>
+
+
+            <label for="cameraId" style="font-weight: bold;">Camera ID</label><br>
+            <div id="edit_camera_id">
+                {% for device in devices %}
+                    {% set is_checked = device['device_name'] in selected_device_names %}
+                    <input type="checkbox" name="edit_camera_id" value="{{ device['device_name'] }}" 
+                           {% if is_checked %}checked{% endif %}>
+                    {{ device['device_name'] }}<br>
+                {% endfor %}
+            </div><br><br>
+            
+                        
+            <label for="sopId" style="font-weight: bold;">SOP ID</label>
+            <div id="edit_sop_id">
+                {% for sops in sops %}
+                <input type="checkbox" name="edit_sop_id" value="{{ sops['sop_name'] }}">
+                {{ sops['sop_name'] }}<br>
+                {% endfor %}
+            </div><br><br>
+
+            <button class="btn-green" type="submit" class="btn_edit">Submit</button>
+            <button class="btn-blue" type="button" id="cancel_edit">Cancel</button>
+        </form><br>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () =>{
+
+            $(document).on('click', '#btnAdd', function(e) {
+                e.preventDefault();  // Prevent default action if it's inside a form
+                $('#roomForm').show();  // Show the hidden form
+            });
+            
+            $(document).on('click', '#cancel_add', function(e) {
+                e.preventDefault();
+                $('#roomForm').hide();  // Hide the form when "Cancel" is clicked
+            });
+
+            $('#roomForm').submit(function (e) {
+                e.preventDefault(); // Prevent default form submission
+                var formData = $(this).serialize(); // Serialize form data
+
+                console.log("Form data sent:", formData); // Debug: Log serialized data
+
+                $.ajax({
+                    url: '/add_room', // Flask endpoint
+                    method: 'POST',
+                    data: formData,
+                    success: function (response) {
+                        console.log("Server response:", response); // Debug: Log server response
+                        if (response.status === 'success') {
+                            alert('Room added successfully!');
+                            location.reload(); // Reload the page
+                            $('#roomForm').hide();
+                        } else {
+                            alert('Error adding room: ' + response.message);
+                        }
+                    },
+                    error: function () {
+                        alert('Error submitting the form.');
+                    }
+                });
+            });
+
+            $(document).on('click', '.btnRemove', function(e) {
+                e.preventDefault();
+
+                var room_name = $(this).data('room-name');
+
+                if (confirm(`Are you sure you want to remove room ${room_name}?`)) {
+                    $.ajax({
+                        url: '/remove_room',
+                        method: 'POST',
+                        data: {
+                            room_name: room_name
+                        },
+                        success: function(response) {
+                            alert('Room removed successfully');
+                            location.reload();  
+                        },
+                        error: function() {
+                            alert('Error removing room');
+                        }
+                    });
+                }
+            }); 
+            
+
+            $(document).on('click', '.btnEdit', function (e) {
+                e.preventDefault();
+                $('#editRoomForm').show();
+
+                var room_name = $(this).data('room-name');
+                var device_names = $(this).data('device-name');
+                var sop_names = $(this).data('sop-name');
+
+                $('#edit_room_name').val(room_name);
+
+                // Convert to arrays (if they are strings)
+                if (typeof device_names === 'string') {
+                    device_names = device_names.split(',').map(name => name.trim());
+                }
+                if (typeof sop_names === 'string') {
+                    sop_names = sop_names.split(',').map(name => name.trim());
+                }
+
+                //console.log("Device Names Array:", device_names);
+                //console.log("SOP Names Array:", sop_names);
+
+                // Reusable function to check/uncheck checkboxes
+                function updateCheckboxes(selector, values) {
+                    document.querySelectorAll(selector + " input").forEach(input => {
+                        input.checked = values.includes(input.value.trim());
+                        console.log(input.value.trim())
+                    });
+                }
+
+                // Update checkboxes
+                updateCheckboxes("#edit_camera_id", device_names);
+                updateCheckboxes("#edit_sop_id", sop_names);
+            });
+
+
+            $(document).on('click', '#cancel_edit', function(e) {
+                e.preventDefault();
+                $('#editRoomForm').hide();  
+                
+            });
+
+
+            $('#editRoomForm').submit(function (e){
+                e.preventDefault(); // Prevent default form submission
+                var room_name = $('#edit_room_name').val(); // Get room name
+                var device_names = [];
+                var sop_names = [];
+
+                // Get checked camera IDs
+                $('#edit_camera_id input[type="checkbox"]:checked').each(function () {
+                    device_names.push($(this).val());
+                });
+
+                // Get checked SOP IDs
+                $('#edit_sop_id input[type="checkbox"]:checked').each(function () {
+                    sop_names.push($(this).val());
+                });
+
+                console.log("Room data sent:", room_name, device_names, sop_names);
+
+                $.ajax({
+                    url: '/update_room', // Flask endpoint
+                    method: 'POST',
+                   data: {
+                        room_name: room_name,
+                        'device_names[]': device_names,  // Append `[]` to send as list
+                        'sop_names[]': sop_names
+                    },
+                    success: function (response) {
+                        console.log("Server response:", response);
+                        if (response.status === 'success') {
+                            alert('Room updated successfully!');
+                            location.reload();
+                        } else {
+                            alert('Error updating room: ' + response.message);
+                        }
+                    },
+                    error: function () {
+                        alert('Error submitting the form.');
+                    }
+                });
+
+            })
+
+        });
+    </script>
+
+</body>
+</html>

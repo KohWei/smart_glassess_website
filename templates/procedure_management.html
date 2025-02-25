@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procedure</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <div class="sidebar">
+        <img src="static/sophic-logo.png" alt="Sophic Logo">
+        <div class="horizontal-line"></div>
+
+        <nav>
+            <ul>
+                <li><a href="{{ url_for('smart_glasses_management') }}">
+                    <img src="static/icons/smart-glasses.png" alt="Smart Glasses Icon">Smart Glasses
+                </a></li>
+                <li><a href="{{ url_for('room_management') }}">
+                    <img src="static/icons/room.png" alt="Room Icon">Room
+                </a></li>
+                <li><a href="{{ url_for('live_stream_management') }}">
+                    <img src="static/icons/live-stream.png" alt="Live Stream Icon">Live Stream
+                </a></li>
+                <li><a href="{{ url_for('procedure_management') }}" style="background-color: #ce3c77;">
+                    <img src="static/icons/procedure.png" alt="Procedure Icon">Procedure
+                </a></li>
+                <li><a href="{{ url_for('inference_engine_management') }}">
+                    <img src="static/icons/inference-engine.png" alt="Inference Engine Icon">Inference Engine
+                </a></li>
+            </ul>
+        </nav>
+    </div>
+
+
+    <div class="main-content">
+        <span class="page-location">Pages / Procedure</span>
+        <h1>Procedure</h1>
+
+        <section class="section-gap">
+            <h2>Add Model</h2>
+            <button id="btn_add_model" class="add-room-btn btn-green">
+                <i class="fa fa-plus"></i> + Add Model
+            </button>
+        </section>
+
+        <h2> Section 1: SOP Task
+            <!-- <button id="btn_add_sop" class="add-room-btn">
+                <i class="fa fa-plus"></i> Add New SOP
+            </button> -->
+        </h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Sop Name</th>
+                    <th style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sop in sops %}
+                <tr>
+                    <td>{{ sop.sop_id }}</td>
+                    <td>{{ sop.sop_name }}</td>
+                    <td style="text-align: center;">
+                        <button class="btnRemoveSOP add-room-btn" 
+                                data-sop-id="{{ sop.sop_id }}" 
+                                data-sop-name="{{ sop.sop_name }}">
+                            <img src="static/icons/remove.png" alt="Remove">
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="2">No SOP task found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- <form id="sop-form" style="display:none;">
+            <label for="sop_name">SOP Name:</label>
+            <input type="text" id="sop_name" name="sop_name" required>
+            <button type="submit" class="btn_add">Submit</button>
+            <button type="button" id="cancel_add">Cancel</button>
+        </form>
+        <p id="success-message-sop" style="color: green;"></p>  
+        <p id="error-message-sop" style="color: red;"></p>
+        <br><br> -->
+    
+
+          
+        <h2>Section 2: Model Selection</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Model Path</th>
+                    <th>Model Class Label Path</th>
+                    <th>Model Type</th>
+                    <th style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for model in models %}
+                <tr>
+                    <td>{{ model.model_id }}</td>
+                    <td>{{ model.model_path }}</td>
+                    <td>{{ model.model_class_label_path }}</td>
+                    <td>{{ model.model_type }}</td>
+                    <td style="text-align: center;">
+                        <button class="btnRemoveModel add-room-btn" 
+                                data-model-id="{{ model.model_id }}" 
+                                data-model-path="{{ model.model_path }}"
+                                data-model-class-label-path="{{ model.model_class_label_path }}"  
+                                data-model-type="{{ model.model_type }}" >
+                            <img src="static/icons/remove.png" alt="Remove">
+                        </button>
+                    
+                        <button class="btnEdit add-room-btn" 
+                                data-model-id="{{ model.model_id }}" 
+                                data-model-path="{{ model.model_path }}"
+                                data-model-class-label-path="{{ model.model_class_label_path }}"  
+                                data-model-type="{{ model.model_type }}" >
+                            <img src="static/icons/edit.png" alt="Edit">
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4">No Model found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+
+        <form id="model-form" style="display:none;">
+            <label for="sop_name">SOP Name:</label>
+            <input type="text" id="sop_name" name="sop_name" required><br><br>
+
+            <label for="model_path:" style="font-weight: bold;">Model Path:</label><br>
+            <input type="file" id="model_path" name="model_path" accept=".h5,.pt,.onnx"><br><br>
+    
+            <label for="model_class_path:" style="font-weight: bold;">Class Label Path</label><br>
+            <input type="file" id="model_class_path" name="model_class_path" accept=".txt,.json"><br><br>
+    
+    
+            <label for="model_type:" style="font-weight: bold;">Model Type</label>
+            <select name="model_type" id="model_type">
+                <option value="1">image classification</option>
+                <option value="2">object detection</option>
+            </select><br>
+        
+            <button type="submit" class="btn_add_model">Submit</button>
+            <button type="button" id="cancel_add_model">Cancel</button>
+        </form>
+        <br><br>
+    
+
+    
+        <h2>Section 3: Procedure List </h2>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Sop ID</th>
+                    <th>Model ID</th>
+                    <th>Model Class</th>
+                    <th>Messagea</th>
+                    <th style="text-align: center;">Sequence</th>
+                    <th style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for proc in procs %}
+                <tr>
+                    <td>{{ proc.proc_id }}</td>
+                    <td>{{ proc.sop_id }}</td>
+                    <td>{{ proc.model_id }}</td>
+                    <td>{{ proc.model_class }}</td>
+                    <td>{{ proc.message }}</td>
+                    <td style="text-align: center;">{{ proc.sequence }}</td>
+                    <td style="text-align: center;">
+                        <button class="btnRemove add-room-btn" 
+                                data-proc-id="{{ proc.proc_id }}" 
+                                data-sop-id="{{ proc.sop_id }}"
+                                data-model-id="{{ proc.model_id }}"  
+                                data-model-class="{{ proc.model_class }}"
+                                data-message="{{ proc.message }}"
+                                data-sequence="{{ proc.sequence }}"   >
+                            <img src="static/icons/remove.png" alt="Remove">
+                        </button>
+                    
+                        <button class="btnEdit add-room-btn" 
+                                data-proc-id="{{ proc.proc_id }}" 
+                                data-sop-id="{{ proc.sop_id }}"
+                                data-model-id="{{ proc.model_id }}"  
+                                data-model-class="{{ proc.model_class }}"
+                                data-message="{{ proc.message }}"
+                                data-sequence="{{ proc.sequence }}"    >
+                            <img src="static/icons/edit.png" alt="Edit">
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6">No Procedure found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <br><br>
+    </div>
+
+    
+    <script>
+        document.addEventListener("DOMContentLoaded", () =>{
+            $(document).on('click', '.btnRemoveSOP', function(e) {
+                e.preventDefault();
+
+                var sop_id = $(this).data('sop-id');
+
+                if (confirm(`Are you sure you want to remove the sop ${sop_id}?`)) {
+                    $.ajax({
+                        url: '/remove_sop',
+                        method: 'POST',
+                        data: {
+                            sop_id: sop_id
+                        },
+                        success: function(response) {
+                            alert('SOP removed successfully');
+                            location.reload();  
+                        },
+                        error: function() {
+                            alert('Error removing SOP');
+                        }
+                    });
+                }
+            }); 
+
+            $(document).on('click', '.btnRemoveModel', function(e) {
+                e.preventDefault();
+
+                var model_id = $(this).data('model-id');
+
+                if (confirm(`Are you sure you want to remove the model ${model_id}?`)) {
+                    $.ajax({
+                        url: '/remove_model',
+                        method: 'POST',
+                        data: {
+                            model_id: model_id
+                        },
+                        success: function(response) {
+                            alert('Model removed successfully');
+                            location.reload();  
+                        },
+                        error: function() {
+                            alert('Error removing Model');
+                        }
+                    });
+                }
+            }); 
+        
+            // $(document).on('click', '#btn_add_sop', function(e) {
+            //     e.preventDefault();  // Prevent default action if it's inside a form
+            //     $('#sop-form').show();  // Show the hidden form
+            // });
+
+            $(document).on('click', '#btn_add_model', function(e) {
+                e.preventDefault();  // Prevent default action if it's inside a form
+                $('#model-form').show();  // Show the hidden form
+            });
+
+            $(document).on('click', '#cancel_add', function(e) {
+                e.preventDefault();
+                $('#sop-form').hide();  // Hide the form when "Cancel" is clicked
+            });
+
+            $(document).on('click', '#cancel_add_model', function(e) {
+                e.preventDefault();
+                $('#model-form').hide();  // Hide the form when "Cancel" is clicked
+            });
+            
+
+            // $('#sop-form').submit(function (e) {
+            //     event.preventDefault();
+            //     const sop_name = $('#sop_name').val();
+            //     $.ajax({
+            //         url: '/add_sop',
+            //         method: 'POST',
+            //         data: {
+            //             sop_name: sop_name
+            //         },
+            //         success: function(response) {
+            //             if (response.status === 'success') {
+            //                 alert('A new SOP added successfully!');
+            //                 $('#sop_name').val('');  // Clear the input field
+            //                 $('#error-message').text('');  // Clear any previous error message
+            //                 location.reload(); // Reload the page
+            //             } else {
+            //                 alert('Error adding new SOP task: ' + response.message);
+            //             }
+                       
+            //         },
+            //         error: function(xhr) {
+            //             $('#error-message').text(xhr.responseJSON.message);  // Display error message
+            //         }
+            //     });
+            // });
+            $('#model-form').submit(function (e) {
+                    e.preventDefault(); // Prevent default form submission
+
+                    let formData = new FormData(this); // Use 'this' to reference the form
+
+
+                    $.ajax({
+                        url: '/add_model',
+                        method: 'POST',
+                        data: formData,
+                        processData: false,  // Prevent jQuery from converting FormData into a string
+                        contentType: false,  // Ensure the correct content type is used
+                        success: function(response) {
+                            if (response.status === 'success') {
+                                alert('Model added successfully!');
+                                $('#model_path').val('');  
+                                $('#model_class_path').val('');
+                                $('#error-message').text('');
+                                location.reload(); 
+                            } else {
+                                alert('Error adding model: ' + response.message);
+                            }
+                        },
+                        error: function(xhr) {
+                            $('#error-message').text(xhr.responseJSON?.message || "An error occurred");
+                        }
+                    });
+                });
+        });
+
+
+
+    </script>
+
+</body>
+</html>

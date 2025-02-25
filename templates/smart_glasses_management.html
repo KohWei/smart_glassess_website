@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Glasses</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <div class="sidebar">
+        <img src="static/sophic-logo.png" alt="Sophic Logo">
+
+        <div class="horizontal-line"></div>
+
+        <nav>
+            <ul>
+                <li><a href="{{ url_for('smart_glasses_management') }}" style="background-color: #ce3c77;">
+                    <img src="static/icons/smart-glasses.png" alt="Smart Glasses Icon">Smart Glasses
+                </a></li>
+                <li><a href="{{ url_for('room_management') }}">
+                    <img src="static/icons/room.png" alt="Room Icon">Room
+                </a></li>
+                <li><a href="{{ url_for('live_stream_management') }}">
+                    <img src="static/icons/live-stream.png" alt="Live Stream Icon">Live Stream
+                </a></li>
+                <li><a href="{{ url_for('procedure_management') }}">
+                    <img src="static/icons/procedure.png" alt="Procedure Icon">Procedure
+                </a></li>
+                <li><a href="{{ url_for('inference_engine_management') }}">
+                    <img src="static/icons/inference-engine.png" alt="Inference Engine Icon">Inference Engine
+                </a></li>
+            </ul>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <span class="page-location">Pages / Smart Glasses</span>
+        <h1>Smart Glasses</h1>
+
+        <section class="section-gap">
+            <h2>Start</h2>
+            <form id="stream-form">
+                <label for="rtsp_url">RTSP URL:</label>
+                <input type="text" id="rtsp_url" name="rtsp_url" required>
+                <button class="btn-green" type="submit">Start Stream</button>
+            </form>
+            <p id="success-message" style="color: green;"></p>  <!-- Success message -->
+            <p id="error-message" style="color: red;"></p>  <!-- Error message element -->
+        </section>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Device Name</th>
+                    <th>RTSP URL</th>
+                    <th style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for smart_glasses in smart_glasses %}
+                    <tr id="smart_glasses{{ smart_glasses.camera_id }}">
+                        <td>{{ smart_glasses.camera_id }}</td>
+                        <td>{{ smart_glasses.device_name }}</td>
+                        <td>{{ smart_glasses.rtsp_url }}</td>
+                        <td style="text-align: center;">
+                            <button class="btnRemove" 
+                                    data-smart_glasses-id="{{ smart_glasses.camera_id }}" 
+                                    data-smart_glasses-name="{{ smart_glasses.device_name }}" 
+                                    data-rtsp-url="{{ smart_glasses.rtsp_url }}">
+                                <img src="static/icons/remove.png" alt="Remove">
+                            </button>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="3">No cameras found.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            $('#stream-form').submit(function (e) {
+                event.preventDefault();
+                const rtsp_url = $('#rtsp_url').val();
+                $.ajax({
+                    url: '/start_stream',
+                    method: 'POST',
+                    data: {
+                        rtsp_url: rtsp_url
+                    },
+                    success: function(response) {
+                        if (response.status === 'success') {
+                            alert('Smart glasses added successfully!');
+                            $('#rtsp_url').val('');  // Clear the input field
+                            $('#error-message').text('');  // Clear any previous error message
+                            location.reload(); // Reload the page
+                        } else {
+                            alert('Error adding smart glasses: ' + response.message);
+                        }
+                       
+                    },
+                    error: function(xhr) {
+                        $('#error-message').text(xhr.responseJSON.message);  // Display error message
+                    }
+                });
+                // $.post('/start_stream', { rtsp_url: rtsp_url }, function(response) {
+                //     $('#success-message').text(response.message);  // Display success message
+                //     $('#rtsp_url').val('');  // Clear the input field
+                //     $('#error-message').text('');  // Clear any previous error message
+                // }).fail(function(xhr) {
+                //     $('#error-message').text(xhr.responseJSON.message);  // Display error message
+                // });
+            });
+        });
+
+
+        $(document).on('click', '.btnRemove', function(e) {
+                e.preventDefault();
+
+                var camera_id = $(this).data('smart_glasses-id');
+
+                if (confirm(`Are you sure you want to remove camera ${camera_id}?`)) {
+                    $.ajax({
+                        url: '/remove_camera',
+                        method: 'POST',
+                        data: {
+                            camera_id: camera_id
+                        },
+                        success: function(response) {
+                            alert('Camera removed successfully');
+                            location.reload();  // Refresh the page to reflect updated data
+                        },
+                        error: function() {
+                            alert('Error removing camera');
+                        }
+                    });
+                }
+            });      
+    </script>
+</body>
+</html>
