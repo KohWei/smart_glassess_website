@@ -244,12 +244,12 @@ tr:last-child td:last-child {
     border-bottom-right-radius: 10px;
 }  
 
-.btnRemove, .btnRemoveSOP, .btnRemoveModel{
+.btnRemove, .btnRemoveSOP, .btnRemoveModel, .btnRemoveProc{
     background-color: red;
     margin-right: 5px;
 }
 
-.btnRemove:hover, .btnRemoveSOP:hover, .btnRemoveModel:hover{
+.btnRemove:hover, .btnRemoveSOP:hover, .btnRemoveModel:hover, .btnRemoveProc:hover{
     background-color: #810101;
 }
 

@@ -166,15 +166,15 @@ def get_procs_list():
     conn = get_db_connection()
     if conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT proc_id, sop_id, model_id, model_class,output, message,sequence FROM procedures")
+        cursor.execute("SELECT proc_id, sop_id, model_id, model_class,true_message,false_message,sequence FROM procedures")
         procedures = cursor.fetchall()
         conn.close()
         return [{'proc_id': row[0],
                  'sop_id': row[1],
                  'model_id': row[2],
                  'model_class': row[3],
-                 'output': row[4],
-                 'message': row[5],
+                 'true_message': row[4],
+                 'false_message': row[5],
                  'sequence': row[6]
                 } 
                 for row in procedures]  # Access the first element of the tuple
@@ -523,8 +523,79 @@ def add_model():
     }), 200
 
 
-# Inference Engine
 
+@app.route('/add_proc', methods=['POST'])
+def add_proc():
+    try:
+        data = request.get_json()
+        procedures = data.get('procedures', [])
+
+        if not procedures:
+            return jsonify({"error": "No procedures received!"}), 400
+
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            
+            for proc in procedures:
+                sequence_num = proc.get('sequence')
+                sop_names = proc.get('sopNames')  # List of SOP names
+                model_class_paths = proc.get('modelNames')  # List of model class paths
+                class_label = proc.get('className')
+                true_message = proc.get('trueMessage')
+                false_message = proc.get('falseMessage')
+
+                # Get SOP IDs from sop table
+                sop_ids = []
+                for sop in sop_names:
+                    result = cursor.execute("SELECT sop_id FROM sop WHERE sop_name = ?", (sop,)).fetchone()
+                    if result:
+                        sop_ids.append(result[0])
+
+                # Get Model IDs from model table
+                model_ids = []
+                for model in model_class_paths:
+                    result = cursor.execute("SELECT model_id FROM model WHERE model_class_label_path = ?", (model,)).fetchone()
+                    if result:
+                        model_ids.append(result[0])
+
+                # Insert each combination of SOP and Model into the procedures table
+                for sop_id in sop_ids:
+                    for model_id in model_ids:
+                        cursor.execute("""
+                            INSERT INTO procedures (sop_id, model_id, model_class, true_message, false_message, sequence) 
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        """, (sop_id, model_id, class_label, true_message, false_message, sequence_num))
+
+            conn.commit()
+            cursor.close()
+            conn.close()
+            return jsonify({"message": "All procedures added successfully!"}), 200
+        else:
+            return jsonify({"error": "Database connection failed!"}), 500
+    except Exception as e:
+        print("Error:", str(e))
+        return jsonify({"error": str(e)}), 500
+    
+
+
+
+@app.route('/remove_proc', methods=['POST'])
+def remove_proc():
+    proc_id = request.form['proc_id']
+
+    conn = get_db_connection()
+    if conn:
+            cursor = conn.cursor()   
+            cursor.execute("DELETE from procedures where proc_id=?", (proc_id,))
+                           
+            conn.commit()
+            return jsonify({'status': 'success', 'message': 'Delete the procedure sucessfully'})
+    else:
+            return jsonify({'status': 'error', 'message': 'Failed to delete the procedure'})
+    
+
+# Inference Engine
 def outputEmit(sequence, predicted_class, message, frame, room):
     try:
         _, buffer = cv2.imencode('.jpg', frame)
@@ -583,7 +654,7 @@ def handle_preprocessing(room, camera_name, sop_name):
 
         # Fetch associated models for the SOP
         cursor.execute("""
-            SELECT DISTINCT p.model_class, p.output, p.message, p.sequence, 
+            SELECT DISTINCT p.model_class, p.true_message, p.false_message, p.sequence, 
                    m.model_path, m.model_class_label_path, m.model_type 
             FROM procedures p
             JOIN model m ON p.model_id = m.model_id
@@ -599,7 +670,7 @@ def handle_preprocessing(room, camera_name, sop_name):
             return
 
         for record in procedure_rows:
-            model_class, output, message, sequence, model_path, label_path, model_type = record
+            model_class, true_message, false_message, sequence, model_path, label_path, model_type = record
             model_type = model_type.strip().lower()
             print(model_type)
 
@@ -612,8 +683,8 @@ def handle_preprocessing(room, camera_name, sop_name):
             models[sequence].append({
                 'classifier': classifier,
                 'model_class': model_class.strip().lower(),
-                'expected_output': output.strip().lower(),
-                'message': message
+                'true_message': true_message,
+                'false_message': false_message
             })
 
         print(f"Models loaded for {camera_name} in room {room}: {models}")
@@ -691,8 +762,8 @@ def read_video_stream(room, camera_name, rtsp_url):
                 for model in models[sequence]:
                     classifier = model['classifier']
                     expected_class = model['model_class']
-                    expected_output = model['expected_output']
-                    message = model['message']
+                    true_message = model['true_message']
+                    false_message = model['false_message']
 
                     # 🔍 Predict the class
                     predicted_class = classifier.predict(frame)
@@ -703,24 +774,22 @@ def read_video_stream(room, camera_name, rtsp_url):
                     if predicted_class:
                         predicted_class = predicted_class.strip().lower()
                         expected_class = expected_class.strip().lower()
-                        expected_output = expected_output.strip().lower()
 
-                        print(f"[{camera_name}] Expected: {expected_output}, Predicted: {predicted_class}")
+                        print(f"[{camera_name}] Expected: {expected_class}, Predicted: {predicted_class}")
 
-                        if predicted_class == expected_class and expected_output == 'true':
+                        if predicted_class == expected_class:
                             if sequence == sequence_progress[room][camera_name] + 1:
                                 print(f" [{camera_name}] Sequence {sequence} validated in order")
-                                outputEmit(sequence, predicted_class, message, frame, room)  # 🔹 Emit event specific to camera
+                                outputEmit(sequence, predicted_class, true_message, frame, room)  # 🔹 Emit event specific to camera
                                 sequence_progress[room][camera_name] = sequence 
                                 sequence_validated = True
                                 time.sleep(8)
                                 break
                             else:
                                 print(f" [{camera_name}] Out-of-order action detected. Expected sequence {sequence_progress[room][camera_name] + 1}.")
+                                outputEmit(sequence, predicted_class, false_message, frame, room)
                         else:
-                            error_msg = f"Incorrect action detected for sequence {sequence}. Please try again in order."
-                            print(error_msg)
-                            outputEmit(sequence, predicted_class, error_msg, frame, room)  # 🔹 Emit error specific to camera
+                            outputEmit(sequence, predicted_class, false_message, frame, room)  # 🔹 Emit error specific to camera
 
                 if not sequence_validated:
                     ret, frame = cap.read()
@@ -744,8 +813,6 @@ def handle_leave(data):
     room = data['room']
     leave_room(room)
     print(f"Client {request.sid} left the room {room}")
-
-
 
 
 if __name__ == "__main__":
