@@ -1,6 +1,6 @@
 import threading
 from flask import Flask, request, render_template, jsonify
-from flask_socketio import SocketIO, emit, join_room, leave_room, rooms
+from flask_socketio import SocketIO, emit, join_room, leave_room, rooms, close_room
 from urllib.parse import urlparse
 import cv2
 import requests
@@ -595,8 +595,8 @@ def remove_proc():
             return jsonify({'status': 'error', 'message': 'Failed to delete the procedure'})
     
 
-# Inference Engine
-def outputEmit(sequence, predicted_class, message, frame, room):
+
+def outputEmit(sequence, predicted_class, message, frame, room, camera_name):
     try:
         _, buffer = cv2.imencode('.jpg', frame)
         encoded_frame = base64.b64encode(buffer.tobytes()).decode('utf-8')
@@ -609,7 +609,7 @@ def outputEmit(sequence, predicted_class, message, frame, room):
         }
 
         # print(f"📡 Sending data to {target_device} in {room}")
-        socketio.emit('data', data, to=room)
+        socketio.emit(str(camera_name), data, to=room)
 
     except Exception as e:
         print(f"Error in outputEmit: {e}")
@@ -623,36 +623,33 @@ def handle_preprocessing(room, camera_name, sop_name):
         return
 
     try:
-        print(f"Received Data -> Room: {room}, Camera: {camera_name}, SOP: {sop_name}")
+        #print(f"Received Data -> Room: {room}, Camera: {camera_name}, SOP: {sop_name}")
 
         rtsp_url = None
         models = defaultdict(list)
 
         cursor = conn.cursor()
 
-        # Fetch RTSP URL for the specific device
         cursor.execute("SELECT rtsp_url FROM camera WHERE device_name = ?", (camera_name,))
         camera_row = cursor.fetchone()
 
         if camera_row:
             rtsp_url = camera_row[0]
-            print(f"RTSP URL: {rtsp_url}")
+            #print(f"RTSP URL: {rtsp_url}")
         else:
             print(f"No RTSP URL found for device: {camera_name}")
             return
 
-        # Fetch SOP ID
         cursor.execute("SELECT sop_id FROM sop WHERE sop_name = ?", (sop_name,))
         sop_row = cursor.fetchone()
 
         if sop_row:
             sop_id = sop_row[0]
-            print(f"SOP ID: {sop_id}")
+            #print(f"SOP ID: {sop_id}")
         else:
             print(f"SOP '{sop_name}' not found.")
             return
 
-        # Fetch associated models for the SOP
         cursor.execute("""
             SELECT DISTINCT p.model_class, p.true_message, p.false_message, p.sequence, 
                    m.model_path, m.model_class_label_path, m.model_type 
@@ -663,16 +660,16 @@ def handle_preprocessing(room, camera_name, sop_name):
         """, (sop_id,))
         
         procedure_rows = cursor.fetchall()
-        if procedure_rows:
-            print(procedure_rows)
-        else:
-            print(f"No models found for SOP: {sop_name}")
-            return
+        # if procedure_rows:
+        #     print(procedure_rows)
+        # else:
+        #     print(f"No models found for SOP: {sop_name}")
+        #     return
 
         for record in procedure_rows:
             model_class, true_message, false_message, sequence, model_path, label_path, model_type = record
             model_type = model_type.strip().lower()
-            print(model_type)
+            #print(model_type)
 
             if model_type in model_classes:
                 classifier = model_classes[model_type](model_path, label_path)
@@ -689,8 +686,8 @@ def handle_preprocessing(room, camera_name, sop_name):
 
         print(f"Models loaded for {camera_name} in room {room}: {models}")
 
-        # Store models **for each camera individually inside the room**
-        room_inference_engine.setdefault(room, {})[camera_name] = models  # 🔹 Each camera gets its own model instance
+        
+        room_inference_engine.setdefault(room, {})[camera_name] = models  
         room_cameras.setdefault(room, set()).add(camera_name)
 
         # Ensure each camera has its own video processing thread
@@ -765,7 +762,6 @@ def read_video_stream(room, camera_name, rtsp_url):
                     true_message = model['true_message']
                     false_message = model['false_message']
 
-                    # 🔍 Predict the class
                     predicted_class = classifier.predict(frame)
 
                     if isinstance(predicted_class, (tuple, list)):
@@ -780,16 +776,16 @@ def read_video_stream(room, camera_name, rtsp_url):
                         if predicted_class == expected_class:
                             if sequence == sequence_progress[room][camera_name] + 1:
                                 print(f" [{camera_name}] Sequence {sequence} validated in order")
-                                outputEmit(sequence, predicted_class, true_message, frame, room)  # 🔹 Emit event specific to camera
+                                outputEmit(sequence, predicted_class, true_message, frame, room, camera_name)  # 🔹 Emit event specific to camera
                                 sequence_progress[room][camera_name] = sequence 
                                 sequence_validated = True
                                 time.sleep(8)
                                 break
                             else:
                                 print(f" [{camera_name}] Out-of-order action detected. Expected sequence {sequence_progress[room][camera_name] + 1}.")
-                                outputEmit(sequence, predicted_class, false_message, frame, room)
+                                outputEmit(sequence, predicted_class, false_message, frame, room, camera_name)
                         else:
-                            outputEmit(sequence, predicted_class, false_message, frame, room)  # 🔹 Emit error specific to camera
+                            outputEmit(sequence, predicted_class, false_message, frame, room, camera_name)  # 🔹 Emit error specific to camera
 
                 if not sequence_validated:
                     ret, frame = cap.read()
@@ -801,22 +797,35 @@ def read_video_stream(room, camera_name, rtsp_url):
     print(f"🚪 Closing stream for {camera_name} in {room}")
 
 
-
 @socketio.on('join')
 def on_join(data):
     room = data['room']
     join_room(room)
     emit('status', {'msg': f'Joined room: {room}'}, to=room)
 
-@socketio.on('leave')
-def handle_leave(data):
-    room = data['room']
-    leave_room(room)
-    print(f"Client {request.sid} left the room {room}")
+
+@socketio.on('close_room')
+def handle_close_room(data):
+    room = data.get('room')
+
+    if room:
+        print(f"🔴 Closing room: {room}")
+
+        emit('room_closed', {'message': f'Room {room} has been closed'}, to=room)
+
+        close_room(room)
 
 
 if __name__ == "__main__":
     socketio.run(app, debug=True, port=5000, host='0.0.0.0')
+
+
+
+# @socketio.on('leave')
+# def handle_leave(data):
+#     room = data['room']
+#     leave_room(room)
+#     print(f"Client {request.sid} left the room {room}")
 
 # def read_video_stream(room, camera_name, rtsp_url):
 #     cap = cv2.VideoCapture(rtsp_url)

@@ -82,42 +82,13 @@
         </table>
     </div>
 
-    <!-- <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            var socket = io.connect('http://192.168.1.48:5000'); 
-    
-            $(document).on('click', '.btnActivate', function(e) {  
-                var room_name = $(this).data('room-name');  
-                var camera_names = $(this).data('device-name');
-                var sop_name = $(this).data('sop-name');  
-    
-                if (!room_name || !camera_names) {
-                    console.error("Room name or Camera names are missing!");
-                    return;
-                }
-    
-                var camera_list = camera_names.split(',').map(name => name.trim()).filter(name => name !== "");
-    
-                if (camera_list.length === 0) {
-                    console.error("No valid camera names provided!");
-                    return;
-                }
-    
-                // Emit a join event for each camera in the list
-                camera_list.forEach(camera_name => {
-                    socket.emit('join', { 
-                        room: room_name,  
-                        camera_name: camera_name,
-                        sop_name: sop_name
-                    });
-                    console.log(`Joining Room: ${room_name} with Camera: ${camera_name} in SOP: ${sop_name}`);
-                });
-            });
-        });
-    </script> -->
 
     <script>
         document.addEventListener("DOMContentLoaded", () => {
+
+            var socket = io.connect("http://192.168.1.48:5000");
+           
+           
             $(document).on('click', '.btnActivate', function (e) {
                 var room_name = $(this).data('room-name');
                 var camera_names = $(this).data('device-name'); // Comma-separated values
@@ -137,7 +108,7 @@
                     return;
                 }
     
-                // 🚀 Send each camera separately
+                
                 camera_list.forEach(camera_name => {
                     $.ajax({
                         url: '/preprocess_input',
@@ -162,6 +133,40 @@
                     });
                 });
             });
+            
+            
+            
+            
+             
+
+            $(document).on('click', '.btnUnactivate', function () {
+                var room_name = $(this).data('room-name');
+
+                if (!room_name) {
+                    alert('Room name is missing!');
+                    return;
+                }
+
+                // Step 1: Notify Flask-SocketIO to close the room
+                socket.emit('close_room', { room: room_name });
+
+                // Step 2: Remove room from the database via AJAX
+                $.ajax({
+                        url: '/remove_room',
+                        method: 'POST',
+                        data: {
+                            room_name: room_name
+                        },
+                        success: function(response) {
+                            alert('Room removed successfully');
+                            location.reload();  
+                        },
+                        error: function() {
+                            alert('Error removing room');
+                        }
+                });
+            });
+
         });
     </script>
     
