@@ -81,18 +81,6 @@
             </tbody>
         </table>
 
-        <!-- <form id="sop-form" style="display:none;">
-            <label for="sop_name">SOP Name:</label>
-            <input type="text" id="sop_name" name="sop_name" required>
-            <button type="submit" class="btn_add">Submit</button>
-            <button type="button" id="cancel_add">Cancel</button>
-        </form>
-        <p id="success-message-sop" style="color: green;"></p>  
-        <p id="error-message-sop" style="color: red;"></p>
-        <br><br> -->
-    
-
-          
         <h2>Section 2: Model Selection</h2>
         <table>
             <thead>
@@ -120,13 +108,13 @@
                             <img src="static/icons/remove.png" alt="Remove">
                         </button>
                     
-                        <button class="btnEdit add-room-btn" 
+                        <!-- <button class="btnEdit add-room-btn" 
                                 data-model-id="{{ model.model_id }}" 
                                 data-model-path="{{ model.model_path }}"
                                 data-model-class-label-path="{{ model.model_class_label_path }}"  
                                 data-model-type="{{ model.model_type }}" >
                             <img src="static/icons/edit.png" alt="Edit">
-                        </button>
+                        </button> -->
                     </td>
                 </tr>
                 {% else %}
@@ -162,7 +150,12 @@
     
 
     
-        <h2>Section 3: Procedure List </h2>
+        <h2>Section 3: Procedure List 
+            <h2>Add Procedure</h2>
+            <button id="btn_add_proc" class="add-room-btn btn-green">
+                <i class="fa fa-plus"></i> + Add Proc
+            </button>
+        </h2>
         
         <table>
             <thead>
@@ -170,8 +163,8 @@
                     <th>ID</th>
                     <th>Sop ID</th>
                     <th>Model ID</th>
-                    <th>Model Class</th>
-                    <th>Messagea</th>
+                    <th>True Message</th>
+                    <th>False Message</th>
                     <th style="text-align: center;">Sequence</th>
                     <th style="text-align: center;">Action</th>
                 </tr>
@@ -182,16 +175,16 @@
                     <td>{{ proc.proc_id }}</td>
                     <td>{{ proc.sop_id }}</td>
                     <td>{{ proc.model_id }}</td>
-                    <td>{{ proc.model_class }}</td>
-                    <td>{{ proc.message }}</td>
+                    <td>{{ proc.true_message }}</td>
+                    <td>{{ proc.false_message }}</td>
                     <td style="text-align: center;">{{ proc.sequence }}</td>
                     <td style="text-align: center;">
-                        <button class="btnRemove add-room-btn" 
+                        <button class="btnRemoveProc add-room-btn" 
                                 data-proc-id="{{ proc.proc_id }}" 
                                 data-sop-id="{{ proc.sop_id }}"
                                 data-model-id="{{ proc.model_id }}"  
-                                data-model-class="{{ proc.model_class }}"
-                                data-message="{{ proc.message }}"
+                                data-model-class="{{ proc.true_message }}"
+                                data-message="{{ proc.false_message }}"
                                 data-sequence="{{ proc.sequence }}"   >
                             <img src="static/icons/remove.png" alt="Remove">
                         </button>
@@ -200,8 +193,8 @@
                                 data-proc-id="{{ proc.proc_id }}" 
                                 data-sop-id="{{ proc.sop_id }}"
                                 data-model-id="{{ proc.model_id }}"  
-                                data-model-class="{{ proc.model_class }}"
-                                data-message="{{ proc.message }}"
+                                data-model-class="{{ proc.true_message }}"
+                                data-message="{{ proc.false_message }}"
                                 data-sequence="{{ proc.sequence }}"    >
                             <img src="static/icons/edit.png" alt="Edit">
                         </button>
@@ -216,11 +209,55 @@
         </table>
         
         <br><br>
+
+        <form id="proc-form" style="display:none;">
+        
+            <label for="sopName">SOP Name:</label>
+            <div id="sop_id">
+                {% for sop in sops %}
+                <input type="checkbox" name="sop_id" value="{{ sop['sop_name'] }}">
+                {{ sop['sop_name'] }}<br>
+                {% endfor %}
+            </div>
+        
+            <label for="modelClassPath">Model Class Path:</label>
+            <div id="model_id">
+                {% for model in models %}
+                <input type="checkbox" name="model_id" value="{{ model['model_class_label_path'] }}">
+                {{ model['model_class_label_path'] }}<br>
+                {% endfor %}
+            </div>
+            <br>
+        
+            <label for="modelClassName">Class Name:</label>
+            <input type="text" id="model_class_name" name="model_class_name" required>
+        
+            <label for="trueMessage">True Message:</label>
+            <input type="text" id="true_message" name="true_message" required>
+        
+            <label for="falseMessage">False Message:</label>
+            <input type="text" id="false_message" name="false_message" required>
+        
+            <button type="button" id="add-procedure">Add Procedure</button>
+            <button type="button" id="cancel_add_proc">Done</button>
+
+            <ul id="procedure-list"></ul>
+            <p>Next Sequence Number: <span id="sequence-num">1</span></p>
+        </form>
+
+       
+
+
     </div>
 
     
     <script>
         document.addEventListener("DOMContentLoaded", () =>{
+            let sop_name = [];
+            let sequenceNumber = 1;
+            let procedureList = []; 
+
+
             $(document).on('click', '.btnRemoveSOP', function(e) {
                 e.preventDefault();
 
@@ -267,10 +304,6 @@
                 }
             }); 
         
-            // $(document).on('click', '#btn_add_sop', function(e) {
-            //     e.preventDefault();  // Prevent default action if it's inside a form
-            //     $('#sop-form').show();  // Show the hidden form
-            // });
 
             $(document).on('click', '#btn_add_model', function(e) {
                 e.preventDefault();  // Prevent default action if it's inside a form
@@ -286,33 +319,36 @@
                 e.preventDefault();
                 $('#model-form').hide();  // Hide the form when "Cancel" is clicked
             });
+
+            $(document).on('click', '#btn_add_proc', function(e) {
+                e.preventDefault();  // Prevent default action if it's inside a form
+                $('#proc-form').show();  // Show the hidden form
+            });
+
+            $(document).on('click', '.btnRemoveProc', function(e) {
+                e.preventDefault();
+
+                var proc_id = $(this).data('proc-id');
+
+                if (confirm(`Are you sure you want to remove the proc ${proc_id}?`)) {
+                    $.ajax({
+                        url: '/remove_proc',
+                        method: 'POST',
+                        data: {
+                            proc_id: proc_id
+                        },
+                        success: function(response) {
+                            alert('Procedure removed successfully');
+                            location.reload();  
+                        },
+                        error: function() {
+                            alert('Error removing procedure');
+                        }
+                    });
+                }
+            }); 
             
 
-            // $('#sop-form').submit(function (e) {
-            //     event.preventDefault();
-            //     const sop_name = $('#sop_name').val();
-            //     $.ajax({
-            //         url: '/add_sop',
-            //         method: 'POST',
-            //         data: {
-            //             sop_name: sop_name
-            //         },
-            //         success: function(response) {
-            //             if (response.status === 'success') {
-            //                 alert('A new SOP added successfully!');
-            //                 $('#sop_name').val('');  // Clear the input field
-            //                 $('#error-message').text('');  // Clear any previous error message
-            //                 location.reload(); // Reload the page
-            //             } else {
-            //                 alert('Error adding new SOP task: ' + response.message);
-            //             }
-                       
-            //         },
-            //         error: function(xhr) {
-            //             $('#error-message').text(xhr.responseJSON.message);  // Display error message
-            //         }
-            //     });
-            // });
             $('#model-form').submit(function (e) {
                     e.preventDefault(); // Prevent default form submission
 
@@ -340,9 +376,107 @@
                             $('#error-message').text(xhr.responseJSON?.message || "An error occurred");
                         }
                     });
-                });
-        });
+            });
 
+
+            $('#add-procedure').click(function () {
+                var model_label_class = [];
+                let className = $('#model_class_name').val();
+                let trueMessage = $('#true_message').val();
+                let falseMessage = $('#false_message').val();
+
+                // If it's the first procedure, store selected SOPs
+                if (sequenceNumber === 1) {
+                    sop_name = []; // Reset to store new SOP selection
+                    $('#sop_id input:checked').each(function () {
+                        sop_name.push($(this).val()); // ✅ Get checkbox value
+                    });
+
+                    // Disable SOP checkboxes after first selection (optional)
+                    $('#sop_id input').prop("disabled", true);
+                }
+
+                // Select checked models
+                let modelInputs = $('#model_id input:checked');
+                modelInputs.each(function () {
+                    model_label_class.push($(this).val()); // ✅ Get checkbox value
+                });
+
+                console.log("SOPs Selected:", sop_name);
+                console.log("Models Selected:", model_label_class);
+
+                // Validation: Ensure required fields are filled
+                if (!className || !trueMessage || !falseMessage || modelInputs.length === 0) {
+                    alert("Please fill in all fields and select at least one Model.");
+                    return;
+                }
+
+                // Store procedure in dictionary
+                let procedure = {
+                    sequence: sequenceNumber,
+                    sopNames: sop_name, // Use stored SOP names
+                    modelNames: model_label_class,
+                    className: className,
+                    trueMessage: trueMessage,
+                    falseMessage: falseMessage
+                };
+                procedureList.push(procedure);
+
+                // Append the procedure dynamically to a list
+                $('#procedure-list').append(`
+                    <li><strong>Sequence ${sequenceNumber}:</strong> 
+                        SOP: ${sop_name.join(", ")}, 
+                        Model: ${model_label_class.join(", ")}, 
+                        Class: ${className}, 
+                        True Msg: ${trueMessage}, 
+                        False Msg: ${falseMessage}
+                    </li>
+                `);
+
+                sequenceNumber++; // Increment the sequence number
+
+                // Reset only model and message fields, keep SOP the same
+                $('#model_id input').prop('checked', false); // Uncheck models
+                $('#model_class_name').val('');
+                $('#true_message').val('');
+                $('#false_message').val('');
+
+                // Update the displayed sequence number
+                $('#sequence-num').text(sequenceNumber);
+
+            });
+
+
+            $('#cancel_add_proc').click(function () {
+                if (procedureList.length === 0) {
+                    alert("No procedures to submit!");
+                    $('#proc-form').hide();
+                    return;
+                }
+
+                $.ajax({
+                    url: '/add_proc',  // Flask route
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ procedures: procedureList }),
+                    success: function (response) {
+                        alert(response.message);  // Show success message
+                        $('#proc-form').hide();
+                        location.reload();
+                        procedureList = []; // Reset after successful submission
+                        $('#procedure-list').empty(); // Clear UI list
+                        sequenceNumber = 1; // Reset sequence number
+                        $('#sequence-num').text(sequenceNumber);
+                        $('#sop_id input').prop("disabled", false); // Re-enable SOP selection
+                    },
+                    error: function (xhr, status, error) {
+                        console.error(xhr.responseText);
+                        alert("Error adding procedures!");
+                    }
+                });
+            });
+    
+        });
 
 
     </script>
