@@ -17,7 +17,7 @@ app = Flask(__name__)
 socketio = SocketIO(app)
 
 # Database connection details
-server = r'LAPTOP-UUABUEJT\SQLEXPRESS'
+server = r'SSINGYONG\SQLEXPRESS01'
 database = 'rwDb'
 connection_string = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};Trusted_Connection=yes"
 model_stored_path = r"C:\Users\User\Intern\RealWear2\model"
@@ -179,7 +179,7 @@ def get_procs_list():
                 } 
                 for row in procedures]  # Access the first element of the tuple
     else:
-        return []
+        return[]
 
 
 # Read the html file

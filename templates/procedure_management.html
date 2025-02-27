@@ -75,7 +75,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="2">No SOP task found.</td>
+                    <td colspan="3">No SOP task found.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -119,43 +119,39 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4">No Model found.</td>
+                    <td colspan="5">No Model found.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
 
-
         <form id="model-form" style="display:none;">
-            <label for="sop_name">SOP Name:</label>
-            <input type="text" id="sop_name" name="sop_name" required><br><br>
+            <section style="margin-top: 20px;" class="section-gap">
+                <label for="sop_name">SOP Name:</label>
+                <input style="margin-top: 15px;" type="text" id="sop_name" name="sop_name" required><br><br>
 
-            <label for="model_path:" style="font-weight: bold;">Model Path:</label><br>
-            <input type="file" id="model_path" name="model_path" accept=".h5,.pt,.onnx"><br><br>
-    
-            <label for="model_class_path:" style="font-weight: bold;">Class Label Path</label><br>
-            <input type="file" id="model_class_path" name="model_class_path" accept=".txt,.json"><br><br>
-    
-    
-            <label for="model_type:" style="font-weight: bold;">Model Type</label>
-            <select name="model_type" id="model_type">
-                <option value="1">image classification</option>
-                <option value="2">object detection</option>
-            </select><br>
+                <label for="model_path:" style="font-weight: bold;">Model Path: </label><br>
+                <input style="margin-left: 15px; margin-top: 5px; border: none;" class="input-file" type="file" id="model_path" name="model_path" accept=".h5,.pt,.onnx"><br><br>
         
-            <button type="submit" class="btn_add_model">Submit</button>
-            <button type="button" id="cancel_add_model">Cancel</button>
+                <label for="model_class_path:" style="font-weight: bold;">Class Label Path: </label><br>
+                <input style="margin-left: 15px; margin-top: 5px; border: none;" class="input-file" type="file" id="model_class_path" name="model_class_path" accept=".txt,.json"><br><br>
+        
+        
+                <label for="model_type:" style="font-weight: bold;">Model Type: </label><br>
+                <select style="margin-left: 15px; margin-top: 5px;" name="model_type" id="model_type">
+                    <option value="1">image classification</option>
+                    <option value="2">object detection</option>
+                </select><br>
+            
+                <button type="submit" class="btn_add_model btn-green">Submit</button>
+                <button class="btn-blue" ype="button" id="cancel_add_model">Cancel</button>
+            </section>
         </form>
         <br><br>
     
 
     
-        <h2>Section 3: Procedure List 
-            <h2>Add Procedure</h2>
-            <button id="btn_add_proc" class="add-room-btn btn-green">
-                <i class="fa fa-plus"></i> + Add Proc
-            </button>
-        </h2>
+        <h2>Section 3: Procedure List </h2>
         
         <table>
             <thead>
@@ -163,8 +159,8 @@
                     <th>ID</th>
                     <th>Sop ID</th>
                     <th>Model ID</th>
-                    <th>True Message</th>
-                    <th>False Message</th>
+                    <th>Model Class</th>
+                    <th>Messagea</th>
                     <th style="text-align: center;">Sequence</th>
                     <th style="text-align: center;">Action</th>
                 </tr>
@@ -202,7 +198,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6">No Procedure found.</td>
+                    <td colspan="7">No Procedure found.</td>
                 </tr>
                 {% endfor %}
             </tbody>

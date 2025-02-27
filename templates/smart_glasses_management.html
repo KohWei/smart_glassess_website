@@ -40,13 +40,13 @@
         <h1>Smart Glasses</h1>
 
         <section class="section-gap">
-            <h2>Start</h2>
+            <h2>Enter link</h2>
             <form id="stream-form">
                 <label for="rtsp_url">RTSP URL:</label>
                 <input type="text" id="rtsp_url" name="rtsp_url" required>
                 <button class="btn-green" type="submit">Start Stream</button>
             </form>
-            <p id="success-message" style="color: green;" ></p>  <!-- Success message -->
+            <p id="success-message" style="color: green;"></p>  <!-- Success message -->
             <p id="error-message" style="color: red;"></p>  <!-- Error message element -->
         </section>
 
@@ -76,7 +76,7 @@
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="3">No cameras found.</td>
+                        <td colspan="4">No cameras found.</td>
                     </tr>
                 {% endfor %}
             </tbody>
