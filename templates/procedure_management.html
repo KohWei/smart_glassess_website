@@ -39,19 +39,73 @@
         <span class="page-location">Pages / Procedure</span>
         <h1>Procedure</h1>
 
+        <!-- Add New SOP Task -->
         <section class="section-gap">
-            <h2>Add Model</h2>
-            <button id="btn_add_model" class="add-room-btn btn-green">
-                <i class="fa fa-plus"></i> + Add Model
+            <button id="btn_add_procedure" class="add-room-btn btn-green">
+                <i class="fa fa-plus"></i> + New Procedure
             </button>
+             <!-- SOP FORM: User enters the SOP Task Name -->
+            <form id="sop-form" style="display:none;">
+                <br><br>
+                <label for="sop_name">Enter SOP Task Name:</label>
+                <input type="text" id="sop_name" name="sop_name" required>
+                <button type="submit" id="submit-sop">Submit</button>
+            </form>
+
+            <!-- MODEL UPLOAD FORM: User uploads models -->
+            <form id="model-form" style="display:none;">
+                <h3>Uploading models for: <span id="selected-sop"></span></h3>
+
+                <label for="model_path">Model File:</label><br>
+                <input type="file" class="input-file" id="model_path" name="model_path" accept=".h5,.pt,.onnx"><br><br>
+
+                <label for="model_class_path">Class Label Path:</label><br>
+                <input type="file" class="input-file" id="model_class_path" name="model_class_path" accept=".txt,.json"><br><br>
+
+                <label for="model_type">Model Type:</label><br>
+                <select name="model_type" id="model_type">
+                    <option value="1">Image Classification</option>
+                    <option value="2">Object Detection</option>
+                </select><br>
+
+                <button type="submit" class="btn-blue">+ Add</button>
+                <button type="button" id="done_uploading" class="btn-green">Done</button><br><br>
+
+                <p style="margin-left: 15px; font-size: 16px;">List of Uploaded Models</p>
+                <ul id="model-list"></ul>
+            </form>
+
+            <!-- PROCEDURE FORM: User enters procedure details -->
+            <form id="instruc-form" style="display:none;">
+                <h3>SOP Task: <span id="selected-sop-instruc"></span></h3>
+
+                <label for="modelClassPath">Model Class Path:</label>
+                <div id="model_id">
+                   
+                </div><br><br>
+                
+                <label for="modelClassName">Class Name:</label>
+                <div id="class_label_id"></div>
+                <br><br>
+
+                <label for="trueMessage">True Message:</label>
+                <input type="text" id="true_message" name="true_message" required><br><br>
+
+                <label for="falseMessage">False Message:</label>
+                <input type="text" id="false_message" name="false_message" required><br><br>
+
+                <button style="width: 110px;" class="btn-blue" type="button" id="add-instruc">+ Add</button>
+                <button class="btn-green" type="button" id="cancel_add_instruc">Done</button><br><br>
+
+                <ul id="instruc-list"></ul>
+                <p style="margin-left: 15px; font-size: 16px;">Next Sequence Number: <span id="sequence-num">1</span></p>
+            </form>
         </section>
 
-        <h2> Section 1: SOP Task
-            <!-- <button id="btn_add_sop" class="add-room-btn">
-                <i class="fa fa-plus"></i> Add New SOP
-            </button> -->
-        </h2>
+        
 
+
+        <h2> Section 1: SOP Management</h2>
         <table>
             <thead>
                 <tr>
@@ -66,7 +120,7 @@
                     <td>{{ sop.sop_id }}</td>
                     <td>{{ sop.sop_name }}</td>
                     <td style="text-align: center;">
-                        <button class="btnRemoveSOP add-room-btn" 
+                        <button class="btn_remove_sop add-room-btn" 
                                 data-sop-id="{{ sop.sop_id }}" 
                                 data-sop-name="{{ sop.sop_name }}">
                             <img src="static/icons/remove.png" alt="Remove">
@@ -75,13 +129,14 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="2">No SOP task found.</td>
+                    <td colspan="3">No SOP task found.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
 
-        <h2>Section 2: Model Selection</h2>
+
+        <h2>Section 2: Model Management</h2>
         <table>
             <thead>
                 <tr>
@@ -100,60 +155,27 @@
                     <td>{{ model.model_class_label_path }}</td>
                     <td>{{ model.model_type }}</td>
                     <td style="text-align: center;">
-                        <button class="btnRemoveModel add-room-btn" 
+                        <button class="btn_remove_model add-room-btn" 
                                 data-model-id="{{ model.model_id }}" 
                                 data-model-path="{{ model.model_path }}"
                                 data-model-class-label-path="{{ model.model_class_label_path }}"  
                                 data-model-type="{{ model.model_type }}" >
                             <img src="static/icons/remove.png" alt="Remove">
                         </button>
-                    
-                        <!-- <button class="btnEdit add-room-btn" 
-                                data-model-id="{{ model.model_id }}" 
-                                data-model-path="{{ model.model_path }}"
-                                data-model-class-label-path="{{ model.model_class_label_path }}"  
-                                data-model-type="{{ model.model_type }}" >
-                            <img src="static/icons/edit.png" alt="Edit">
-                        </button> -->
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4">No Model found.</td>
+                    <td colspan="5">No Model found.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
-
-
-        <form id="model-form" style="display:none;">
-            <label for="sop_name">SOP Name:</label>
-            <input type="text" id="sop_name" name="sop_name" required><br><br>
-
-            <label for="model_path:" style="font-weight: bold;">Model Path:</label><br>
-            <input type="file" id="model_path" name="model_path" accept=".h5,.pt,.onnx"><br><br>
-    
-            <label for="model_class_path:" style="font-weight: bold;">Class Label Path</label><br>
-            <input type="file" id="model_class_path" name="model_class_path" accept=".txt,.json"><br><br>
-    
-    
-            <label for="model_type:" style="font-weight: bold;">Model Type</label>
-            <select name="model_type" id="model_type">
-                <option value="1">image classification</option>
-                <option value="2">object detection</option>
-            </select><br>
         
-            <button type="submit" class="btn_add_model">Submit</button>
-            <button type="button" id="cancel_add_model">Cancel</button>
-        </form>
-        <br><br>
     
-
-    
-        <h2>Section 3: Procedure List 
-            <h2>Add Procedure</h2>
-            <button id="btn_add_proc" class="add-room-btn btn-green">
-                <i class="fa fa-plus"></i> + Add Proc
+        <h2>Section 3: Instruction Management 
+            <button id="btn_edit_instruc" class="add-room-btn btn-green">
+                <i class="fa fa-plus"></i> + Edit Instruc
             </button>
         </h2>
         
@@ -179,7 +201,7 @@
                     <td>{{ proc.false_message }}</td>
                     <td style="text-align: center;">{{ proc.sequence }}</td>
                     <td style="text-align: center;">
-                        <button class="btnRemoveProc add-room-btn" 
+                        <button class="btn_remove_instruc add-room-btn" 
                                 data-proc-id="{{ proc.proc_id }}" 
                                 data-sop-id="{{ proc.sop_id }}"
                                 data-model-id="{{ proc.model_id }}"  
@@ -188,64 +210,46 @@
                                 data-sequence="{{ proc.sequence }}"   >
                             <img src="static/icons/remove.png" alt="Remove">
                         </button>
-                    
-                        <button class="btnEdit add-room-btn" 
-                                data-proc-id="{{ proc.proc_id }}" 
-                                data-sop-id="{{ proc.sop_id }}"
-                                data-model-id="{{ proc.model_id }}"  
-                                data-model-class="{{ proc.true_message }}"
-                                data-message="{{ proc.false_message }}"
-                                data-sequence="{{ proc.sequence }}"    >
-                            <img src="static/icons/edit.png" alt="Edit">
-                        </button>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6">No Procedure found.</td>
+                    <td colspan="7">No Instruction found.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
-        
-        <br><br>
 
-        <form id="proc-form" style="display:none;">
-        
-            <label for="sopName">SOP Name:</label>
-            <div id="sop_id">
+        <form id="edit-sop-form" style="display:none;">
+            <br><br>
+            <label>SOP: (Select 1 Task to Modify)</label>
+            <div id="sop_id_list">
                 {% for sop in sops %}
-                <input type="checkbox" name="sop_id" value="{{ sop['sop_name'] }}">
-                {{ sop['sop_name'] }}<br>
+                <div style="display: flex; align-items: center;">
+                    <input class="custom-checkbox edit-sop-rdbtn" type="radio" name="selected_sop" value="{{ sop['sop_id'] }}">
+                    <span>{{ sop['sop_name'] }}</span><br>
+                </div>
                 {% endfor %}
-            </div>
-        
-            <label for="modelClassPath">Model Class Path:</label>
-            <div id="model_id">
-                {% for model in models %}
-                <input type="checkbox" name="model_id" value="{{ model['model_class_label_path'] }}">
-                {{ model['model_class_label_path'] }}<br>
-                {% endfor %}
-            </div>
-            <br>
-        
-            <label for="modelClassName">Class Name:</label>
-            <input type="text" id="model_class_name" name="model_class_name" required>
-        
-            <label for="trueMessage">True Message:</label>
-            <input type="text" id="true_message" name="true_message" required>
-        
-            <label for="falseMessage">False Message:</label>
-            <input type="text" id="false_message" name="false_message" required>
-        
-            <button type="button" id="add-procedure">Add Procedure</button>
-            <button type="button" id="cancel_add_proc">Done</button>
-
-            <ul id="procedure-list"></ul>
-            <p>Next Sequence Number: <span id="sequence-num">1</span></p>
+            </div><br>
         </form>
 
+        <form id="edit-sop-detail-form" style="display:none;">
+            <h3>SOP Task: <span id="selected-edit-sop"></span></h3>
+
+            <div id="model_id">
+                   
+            </div><br><br>
+
+            
+
+            <section class="section-gap" id="sop-detail-id">
+            </section>
+
+            <button style="width: 110px;" class="btn-blue" type="button" id="add-instruc">+ Add</button>
+            <button class="btn-green" type="button" id="cancel_edit">Done</button><br><br>
+        </form>
        
+           
 
 
     </div>
@@ -253,12 +257,21 @@
     
     <script>
         document.addEventListener("DOMContentLoaded", () =>{
-            let sop_name = [];
+            let edit_sop_name = [];
+            let edit_sequenceNumber = 1;
+            let edit_procedureList = []; 
             let sequenceNumber = 1;
-            let procedureList = []; 
+            let instruc_list = [];
 
+           
+            
 
-            $(document).on('click', '.btnRemoveSOP', function(e) {
+            $(document).on('click', '#btn_add_procedure', function(e) {
+                e.preventDefault();  // Prevent default action if it's inside a form
+                $('#sop-form').show();  // Show the hidden form
+            });
+
+            $(document).on('click', '.btn_remove_sop', function(e) {
                 e.preventDefault();
 
                 var sop_id = $(this).data('sop-id');
@@ -281,7 +294,7 @@
                 }
             }); 
 
-            $(document).on('click', '.btnRemoveModel', function(e) {
+            $(document).on('click', '.btn_remove_model', function(e) {
                 e.preventDefault();
 
                 var model_id = $(this).data('model-id');
@@ -303,29 +316,9 @@
                     });
                 }
             }); 
-        
+    
 
-            $(document).on('click', '#btn_add_model', function(e) {
-                e.preventDefault();  // Prevent default action if it's inside a form
-                $('#model-form').show();  // Show the hidden form
-            });
-
-            $(document).on('click', '#cancel_add', function(e) {
-                e.preventDefault();
-                $('#sop-form').hide();  // Hide the form when "Cancel" is clicked
-            });
-
-            $(document).on('click', '#cancel_add_model', function(e) {
-                e.preventDefault();
-                $('#model-form').hide();  // Hide the form when "Cancel" is clicked
-            });
-
-            $(document).on('click', '#btn_add_proc', function(e) {
-                e.preventDefault();  // Prevent default action if it's inside a form
-                $('#proc-form').show();  // Show the hidden form
-            });
-
-            $(document).on('click', '.btnRemoveProc', function(e) {
+            $(document).on('click', '.btn_remove_instruc', function(e) {
                 e.preventDefault();
 
                 var proc_id = $(this).data('proc-id');
@@ -349,133 +342,341 @@
             }); 
             
 
-            $('#model-form').submit(function (e) {
-                    e.preventDefault(); // Prevent default form submission
-
-                    let formData = new FormData(this); // Use 'this' to reference the form
-
-
-                    $.ajax({
-                        url: '/add_model',
-                        method: 'POST',
-                        data: formData,
-                        processData: false,  // Prevent jQuery from converting FormData into a string
-                        contentType: false,  // Ensure the correct content type is used
-                        success: function(response) {
-                            if (response.status === 'success') {
-                                alert('Model added successfully!');
-                                $('#model_path').val('');  
-                                $('#model_class_path').val('');
-                                $('#error-message').text('');
-                                location.reload(); 
-                            } else {
-                                alert('Error adding model: ' + response.message);
-                            }
-                        },
-                        error: function(xhr) {
-                            $('#error-message').text(xhr.responseJSON?.message || "An error occurred");
-                        }
-                    });
+            
+            $(document).on('click', '#btn_edit_instruc', function(e) {
+                e.preventDefault();  // Prevent default action if it's inside a form
+                $('#edit-sop-form').show();  // Show the hidden form
             });
 
 
-            $('#add-procedure').click(function () {
-                var model_label_class = [];
-                let className = $('#model_class_name').val();
-                let trueMessage = $('#true_message').val();
-                let falseMessage = $('#false_message').val();
+            // Instruction Edit Part
+            $('.edit-sop-rdbtn').change(function () {
+                $('.edit-sop-rdbtn').not(this).prop('checked', false); // Uncheck other checkboxes
 
-                // If it's the first procedure, store selected SOPs
-                if (sequenceNumber === 1) {
-                    sop_name = []; // Reset to store new SOP selection
-                    $('#sop_id input:checked').each(function () {
-                        sop_name.push($(this).val()); // ✅ Get checkbox value
-                    });
+                if ($(this).is(':checked')) {
+                    let selectedSOP = $(this).val(); 
+                    let selectedSOPText = $(this).next('span').text(); 
+                    localStorage.setItem('selectedSopName', selectedSOPText);
 
-                    // Disable SOP checkboxes after first selection (optional)
-                    $('#sop_id input').prop("disabled", true);
+                    retrieveSOPDetails(selectedSOP); // Fetch related data from the database
+                } else {
+                    $('#sop-detail-id').empty();
                 }
-
-                // Select checked models
-                let modelInputs = $('#model_id input:checked');
-                modelInputs.each(function () {
-                    model_label_class.push($(this).val()); // ✅ Get checkbox value
-                });
-
-                console.log("SOPs Selected:", sop_name);
-                console.log("Models Selected:", model_label_class);
-
-                // Validation: Ensure required fields are filled
-                if (!className || !trueMessage || !falseMessage || modelInputs.length === 0) {
-                    alert("Please fill in all fields and select at least one Model.");
-                    return;
-                }
-
-                // Store procedure in dictionary
-                let procedure = {
-                    sequence: sequenceNumber,
-                    sopNames: sop_name, // Use stored SOP names
-                    modelNames: model_label_class,
-                    className: className,
-                    trueMessage: trueMessage,
-                    falseMessage: falseMessage
-                };
-                procedureList.push(procedure);
-
-                // Append the procedure dynamically to a list
-                $('#procedure-list').append(`
-                    <li><strong>Sequence ${sequenceNumber}:</strong> 
-                        SOP: ${sop_name.join(", ")}, 
-                        Model: ${model_label_class.join(", ")}, 
-                        Class: ${className}, 
-                        True Msg: ${trueMessage}, 
-                        False Msg: ${falseMessage}
-                    </li>
-                `);
-
-                sequenceNumber++; // Increment the sequence number
-
-                // Reset only model and message fields, keep SOP the same
-                $('#model_id input').prop('checked', false); // Uncheck models
-                $('#model_class_name').val('');
-                $('#true_message').val('');
-                $('#false_message').val('');
-
-                // Update the displayed sequence number
-                $('#sequence-num').text(sequenceNumber);
-
             });
 
-
-            $('#cancel_add_proc').click(function () {
-                if (procedureList.length === 0) {
-                    alert("No procedures to submit!");
-                    $('#proc-form').hide();
-                    return;
-                }
-
+            function retrieveSOPDetails(sop_id) {
                 $.ajax({
-                    url: '/add_proc',  // Flask route
+                    url: '/get_sop_details',  // Endpoint in your backend
                     type: 'POST',
                     contentType: 'application/json',
-                    data: JSON.stringify({ procedures: procedureList }),
+                    data: JSON.stringify({ sop_id: sop_id }),
+
                     success: function (response) {
-                        alert(response.message);  // Show success message
-                        $('#proc-form').hide();
-                        location.reload();
-                        procedureList = []; // Reset after successful submission
-                        $('#procedure-list').empty(); // Clear UI list
-                        sequenceNumber = 1; // Reset sequence number
-                        $('#sequence-num').text(sequenceNumber);
-                        $('#sop_id input').prop("disabled", false); // Re-enable SOP selection
+                        console.log("Received SOP Data:", response); 
+                        if (Array.isArray(response) && response.length > 0) { 
+                            populateSOPData(response); // Call function to handle data
+
+                            let selectedSopName = localStorage.getItem('selectedSopName');
+
+                            $('#edit-sop-form').hide();
+                            $('#selected-edit-sop').text(selectedSopName);
+                            $('#edit-sop-detail-form').show();
+                        } else {
+                            alert('No related data found.');
+                        }
                     },
-                    error: function (xhr, status, error) {
-                        console.error(xhr.responseText);
-                        alert("Error adding procedures!");
+                    error: function (xhr) {
+                        alert('Error retrieving SOP data: ' + xhr.responseText);
+                    }
+                });
+            }
+
+            function populateSOPData(data){
+                $('#sop-detail-id').empty();
+                data.sort((a, b) => a.sequence - b.sequence); // Sort by sequence number
+
+                data.forEach((item, index) => {
+                    let sequenceBlock = `
+                        <div class="sop-block">
+                            <h4>Sequence ${item.sequence}</h4>
+                            <label>Model Path:</label>
+                            <input type="text" value="${item.model_class_label_path}" class="form-control" required><br>
+                            
+                            <label>Model Class:</label>
+                            <input type="text" value="${item.model_class}" class="form-control" required><br>
+
+                            <label>True Message:</label>
+                            <input type="text" value="${item.true_message}" class="form-control" required><br>
+
+                            <label>False Message:</label>
+                            <input type="text" value="${item.false_message}" class="form-control" required><br>
+                        </div><br>
+                    `;
+
+                    $('#sop-detail-id').append(sequenceBlock);
+                });
+
+            }
+
+          
+            
+    
+
+            // Add New Procedure Part
+            $('#sop-form').submit(function (e) {
+                e.preventDefault();
+                let sopName = $('#sop_name').val();
+                if (!sopName) {
+                    alert("Please enter an SOP name.");
+                    return;
+                }
+                $.ajax({
+                    url: '/check_sop', // Backend endpoint
+                    type: 'POST', // Send data to the server
+                    contentType: 'application/json',
+                    data: JSON.stringify({ sop_name: sopName }),
+                    success: function (response) {
+                        if (response.exists) {
+                            alert("SOP name already exists. Please enter a different name.");
+                        } else {
+                            // SOP doesn't exist, proceed
+                            localStorage.setItem('sopName', sopName);
+                            $('#sop-form').hide();
+                            $('#model-form').show();
+                            $('#selected-sop').text(sopName);
+                        }
+                    },
+                    error: function () {
+                        alert("Error checking SOP. Please try again.");
+                    }
+
+                });
+            });
+
+            $('#model-form').submit(function (e) {
+                e.preventDefault();
+                let sopName = localStorage.getItem('sopName'); // Retrieve SOP name
+                if (!sopName) {
+                    alert("SOP name is missing!");
+                    return;
+                }
+
+                let formData = new FormData();
+                formData.append('sop_name', sopName);
+                formData.append('model_path', $('#model_path')[0].files[0]);
+                formData.append('model_class_path', $('#model_class_path')[0].files[0]);
+                formData.append('model_type', $('#model_type').val());
+
+                $.ajax({
+                    url: '/add_model',
+                    method: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function (response) {
+                        if (response.status === 'success') {
+                            $('#model-list').append(`<li>${response.model_filename}</li>`);
+                            $('#model_path').val('');
+                            $('#model_class_path').val('');
+                        } else {
+                            alert('Error adding model: ' + response.message);
+                        }
+                    },
+                    error: function (xhr) {
+                        alert(xhr.responseJSON?.message || "An error occurred");
                     }
                 });
             });
+
+            $('#done_uploading').click(function () {
+                localStorage.setItem('showProcForm', 'true');
+
+                $('#model-form').hide();
+                setTimeout(function () {
+                    location.reload();
+                }, 1000);
+            });
+
+            $(document).ready(function () {
+                let sopName = localStorage.getItem('sopName');
+                if (localStorage.getItem('showProcForm') === 'true') {
+                    $('#sop-form').hide();
+                    $('#model-form').hide();
+                    $('#instruc-form').show();
+                    localStorage.removeItem('showProcForm'); 
+                }
+                $('#selected-sop-instruc').text(sopName);
+
+                if (sopName){
+                    modelClassLabelPathRetreive(sopName);
+                }
+                
+            });
+
     
+            function modelClassLabelPathRetreive(sopName) {
+                $.ajax({
+                    url: '/get_specific_model_class_label',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ sop_name: sopName }),
+                    success: function (response) {
+                        let modelContainer = $('#model_id');
+                        modelContainer.empty(); 
+
+                        // Loop through the model paths and create checkboxes dynamically
+                        response.model_paths.forEach(function (modelPath) {
+                            let checkboxHtml = `
+                                <div style="display: flex; align-items: center;">
+                                    <input class="custom-checkbox model_chkb" type="checkbox" name="model_id" value="${modelPath}">
+                                    <span>${modelPath}</span><br>
+                                </div>
+                            `;
+                            modelContainer.append(checkboxHtml); 
+                        });
+
+                        console.log("Added model checkboxes:", response.model_paths);
+
+                        $('.model_chkb').change(function () {
+                            $('.model-checkbox').not(this).prop('checked', false);
+
+                            if ($(this).is(':checked')) {
+                                classNameRetreive($(this).val()); 
+                            } else {
+                                $('#class_label_id').empty(); 
+}
+                        });
+                    },
+                    error: function () {
+                        alert("Error fetching models. Please try again.");
+                    }
+                });
+            }
+
+
+            function classNameRetreive(selectedModelPath){
+                $.ajax({
+                    url: '/retrieve_class_name',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ model_label_path: selectedModelPath }),
+                    success: function (response){
+                        let classContainer = $('#class_label_id');
+                        classContainer.empty();
+
+                        response.class_labels.forEach(function (label) {
+                            let checkboxHtml = `
+                                <div style="display: flex; align-items: center;">
+                                    <input class="custom-checkbox class-label-checkbox" type="checkbox" name="class_label" value="${label}">
+                                    <span>${label}</span><br>
+                                </div>
+                            `;
+                            classContainer.append(checkboxHtml);
+                        });
+
+                        // Add change event listener to class label checkboxes
+                        $('.class-label-checkbox').change(function () {
+                            // Ensure only one class label checkbox is selected at a time
+                            $('.class-label-checkbox').not(this).prop('checked', false);
+                        });
+                        
+                    },
+                    error: function () {
+                        alert("Error fetching class labels. Please try again.");
+                    }
+                });
+
+            }
+
+             
+
+            $('#add-instruc').click(function () {
+                let sopName = localStorage.getItem('sopName');
+                let model_label_path = $('#model_id').find('input:checked').val(); 
+                let model_class_name = $('#class_label_id').find('input:checked').val();
+                let true_message = $('#true_message').val();
+                let false_message = $('#false_message').val();
+                
+                console.log("SOP Name:", sopName);
+                console.log("Model Label Path:", model_label_path);
+                console.log("Model Class Name:", model_class_name);
+                console.log("True Message:", true_message);
+                console.log("False Message:", false_message);
+
+                if (!sopName || !true_message || !false_message || !model_class_name || !model_label_path) {
+                    alert("Please fill in all fields.");
+                    return;
+                }
+
+                let instruction = {
+                        sequenceNumber: sequenceNumber,
+                        sopName: [sopName],
+                        modelLabelPath: [model_label_path],
+                        modelClassName: model_class_name,
+                        trueMessage: true_message,
+                        falseMessage: false_message
+                    }
+
+                    instruc_list.push(instruction);
+                    $('#instruc-list').append(`
+                    <li><strong>Sequence ${sequenceNumber}:</strong> 
+                        SOP: ${sopName}, 
+                        Model: ${model_label_path}, 
+                        Class: ${model_class_name}, 
+                        True Msg: ${true_message}, 
+                        False Msg: ${false_message}
+                    </li>
+                    `);
+                    sequenceNumber++;
+
+                    $('#model_id input').prop('checked', false); 
+                    $('#class_label_id input').prop('checked', false);
+                    $('#true_message').val('');
+                    $('#false_message').val('');
+                    $('#sequence-num').text(sequenceNumber);
+                
+                    
+                 
+
+            });
+
+
+            $('#cancel_add_instruc').click(function () {
+                if (instruc_list.length === 0) {
+                        alert("No procedures to submit!");
+                        $('#instruc-form').hide();
+                        return;
+                }
+
+                    $.ajax({
+                        url: '/add_instruc',  // Flask route
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ procedures: instruc_list }),
+                        success: function (response) {
+                            alert(response.message);  // Show success message
+                            $('#instruc-form').hide();
+                            location.reload();
+                            instruc_list = []; // Reset after successful submission
+                            $('#instruc-list').empty(); // Clear UI list
+                            sequenceNumber = 1; // Reset sequence number
+                            $('#sequence-num').text(sequenceNumber);
+                            $('#selected-sop-instruc').text("");
+                        },
+                        error: function (xhr, status, error) {
+                            console.error(xhr.responseText);
+                            alert("Error adding procedures!");
+                        }
+                });
+            });
+
+
+
+
+
+
+
+
         });
 
 

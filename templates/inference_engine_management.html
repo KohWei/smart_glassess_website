@@ -46,7 +46,7 @@
                     <th>Room Name</th>
                     <th>Sop Name</th>
                     <th>Device Name</th>
-                    <th>Number of Camera</th>
+                    <th style="text-align: center;">Number of Camera</th>
                     <th style="text-align: center;">Action</th>
                 </tr>
             </thead>
@@ -75,7 +75,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4">No room found.</td>
+                    <td colspan="5">No room found.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -86,7 +86,7 @@
     <script>
         document.addEventListener("DOMContentLoaded", () => {
 
-            var socket = io.connect("http://192.168.1.48:5000");
+            var socket = io.connect("http://192.168.0.4:5000");
            
            
             $(document).on('click', '.btnActivate', function (e) {

@@ -12,6 +12,8 @@ from objectDetection import ObjectDetection
 import base64
 from threading import Thread, Lock
 import time
+import datetime
+import os
 
 app = Flask(__name__)
 socketio = SocketIO(app)
@@ -22,12 +24,15 @@ database = 'rwDb'
 connection_string = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};Trusted_Connection=yes"
 model_stored_path = r"C:\Users\User\Intern\RealWear2\model"
 
-room_cameras = {}
-room_inference_engine = {}
+# room_cameras = {}
+# room_inference_engine = {}
+# video_stream_ready = {}
+# sequence_progress = {}  
 
-video_stream_ready = {}
-
-sequence_progress = {}  
+room_inference_engine = defaultdict(dict)
+room_cameras = defaultdict(set)
+sequence_progress = defaultdict(lambda: defaultdict(int))  # Track sequence per camera
+video_stream_ready = defaultdict(dict)
 
 room_lock = Lock()
 
@@ -439,57 +444,58 @@ def remove_model():
             return jsonify({'status': 'error', 'message': 'Failed to delete the model'})
 
 
-@app.route('/add_sop', methods=['POST'])
-def add_sop():
-    try:
-        sop_name = request.form['sop_name']
+@app.route('/check_sop', methods=['POST'])
+def check_sop():
+    data = request.get_json()
+    sop_name = data.get('sop_name')
 
-        conn = get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            if cursor.execute("SELECT * FROM sop where sop_name = ?", (sop_name,)).fetchone():
-                return {'status': 'error', 'message': 'The SOP already exists.'}
-            else:
-                # Insert data into the 'camera' table with the correct number of parameters
-                cursor.execute("""INSERT INTO sop (sop_name)VALUES (?)""",
-                            (sop_name))  
+    if not sop_name:
+        return jsonify({"error": "SOP name is required"}), 400
 
-                conn.commit()  # Commit the changes
+    conn = get_db_connection()
 
-                return jsonify({'status': 'success', 'message': 'SOP added successfully'})
-        else:
-            return jsonify({'status': 'error', 'message': 'Failed to connect to the database'})
-    except Exception as e:
-        print(f"Error adding room: {e}")
-        return jsonify({'status': 'error', 'message': 'An error occurred while adding the SOP'})
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM sop WHERE sop_name = ?", (sop_name,))
+    count = cursor.fetchone()[0]
 
+    return jsonify({"exists": count > 0})  # True if SOP exists, False otherwise
+
+
+def get_unique_filename(folder, filename):
+    base, ext = os.path.splitext(filename)
+    counter = 1
+    new_filename = filename
+
+    while os.path.exists(os.path.join(folder, new_filename)):
+        new_filename = f"{base}({counter}){ext}"
+        counter += 1
+
+    return new_filename
 
 
 @app.route('/add_model', methods=['POST'])
 def add_model():
-    # Get form fields and uploaded files
     sop_name = request.form.get('sop_name')
     model_file = request.files.get('model_path')
     class_file = request.files.get('model_class_path')
     model_type = request.form.get('model_type')
 
-    if model_type == '1':
-        model_type = 'image classification'
-    else:
-        model_type = 'object detection'
-    
-    print(sop_name, model_file, class_file, model_type)
-
     if not sop_name or not model_file or not class_file:
         return jsonify({"error": "Missing required fields"}), 400
 
-    # Create a folder for the model based on the sop_name
+    model_type = "image classification" if model_type == '1' else "object detection"
+
+    # Create or use the existing SOP folder
     model_folder = os.path.join(model_stored_path, sop_name)
     os.makedirs(model_folder, exist_ok=True)
 
-    # Save files
-    model_path = os.path.join(model_folder, model_file.filename)
-    class_path = os.path.join(model_folder, class_file.filename)
+    # Generate unique filenames
+    unique_model_filename = get_unique_filename(model_folder, model_file.filename)
+    unique_class_filename = get_unique_filename(model_folder, class_file.filename)
+
+    # Save files with unique names
+    model_path = os.path.join(model_folder, unique_model_filename)
+    class_path = os.path.join(model_folder, unique_class_filename)
     model_file.save(model_path)
     class_file.save(class_path)
 
@@ -499,16 +505,15 @@ def add_model():
         return jsonify({"error": "Database connection failed"}), 500
     cursor = conn.cursor()
 
-    # Check if the SOP already exists in the sop table
+    # Get SOP ID or create new one
     cursor.execute("SELECT sop_id FROM sop WHERE sop_name = ?", (sop_name,))
     row = cursor.fetchone()
     if row:
         sop_id = row[0]
     else:
-        # Insert new SOP record and get its id
         cursor.execute("INSERT INTO sop (sop_name) VALUES (?)", (sop_name,))
 
-    # Insert a record in the model table with the file paths
+    # Insert model details into database
     cursor.execute(
         "INSERT INTO model (model_path, model_class_label_path, model_type) VALUES (?, ?, ?)",
         (model_path, class_path, model_type)
@@ -519,13 +524,170 @@ def add_model():
 
     return jsonify({
         "status": "success",
-        "message": f"Files uploaded successfully to {model_folder} and records saved"
+        "message": f"Model '{unique_model_filename}' uploaded successfully!",
+        "model_filename": unique_model_filename
     }), 200
 
 
+@app.route('/get_specific_model_class_label', methods=['POST'])
+def get_specific_model_class_label():
+    data = request.get_json()
+    sop_name = data.get('sop_name')
 
-@app.route('/add_proc', methods=['POST'])
-def add_proc():
+    if not sop_name:
+        return jsonify({"error": "SOP name is required"}), 400
+
+    combined_name = os.path.join(model_stored_path, sop_name)
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    # Get all model paths from the database
+    cursor.execute("SELECT model_class_label_path FROM model")
+    results = cursor.fetchall()
+
+    exact_model_class_label_paths = []
+    for result in results:
+        class_path = result[0]
+        model_directory = os.path.dirname(class_path)
+
+        if model_directory == combined_name and class_path.endswith(".txt"):
+            exact_model_class_label_paths.append(class_path)
+
+    return jsonify({"model_paths": exact_model_class_label_paths})
+
+
+@app.route('/retrieve_class_name', methods=['POST'])
+def retrieve_class_name():
+    try:
+        data = request.get_json()
+        model_label_path = data.get('model_label_path')
+
+        if not model_label_path or not os.path.exists(model_label_path):
+            return jsonify({"error": "Invalid or missing model path"}), 400
+
+        class_labels = []
+        with open(model_label_path, "r") as file:
+            for line in file:
+                label = line.strip()
+                if " " in label:  # If the line contains a space, assume numbered format
+                    label = label.split(" ", 1)[1]  # Remove the number part
+                class_labels.append(label)  # Add to list
+
+        return jsonify({"class_labels": class_labels})  # Return cleaned labels
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/get_sop_details', methods=['POST'])
+def get_sop_details():
+    try:
+        data = request.get_json()
+        sop_id = data.get('sop_id')
+        print("SOP Name:", sop_id)
+
+        if not sop_id:
+            return jsonify({"error": "SOP selection is required"}), 400
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Get all procedures related to this SOP
+        cursor.execute("SELECT model_id, model_class, true_message, false_message, sequence FROM procedures WHERE sop_id = ?", (sop_id,))
+        procedures = cursor.fetchall()
+
+        if not procedures:
+            return jsonify({"error": "No procedures found for this SOP"}), 404
+
+        result = []
+
+        for row in procedures:
+            model_id, model_class, true_message, false_message, sequence = row
+            
+            # Get model_class_label_path from the model table
+            cursor.execute("SELECT model_class_label_path FROM model WHERE model_id = ?", (model_id,))
+            model_class_label_path_row = cursor.fetchone()
+            
+            if model_class_label_path_row:
+                model_class_label_path = model_class_label_path_row[0]
+            else:
+                model_class_label_path = None  # Handle missing model_class_label_path
+
+            result.append({
+                "model_class_label_path": model_class_label_path,
+                "model_class": model_class,
+                "true_message": true_message,
+                "false_message": false_message,
+                "sequence": sequence
+            })
+
+        conn.close()
+        return jsonify(result)  # Correctly wrapping the response
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# @app.route('/add_model', methods=['POST'])
+# def add_model():
+#     # Get form fields and uploaded files
+#     sop_name = request.form.get('sop_name')
+#     model_file = request.files.get('model_path')
+#     class_file = request.files.get('model_class_path')
+#     model_type = request.form.get('model_type')
+
+#     if model_type == '1':
+#         model_type = 'image classification'
+#     else:
+#         model_type = 'object detection'
+    
+#     print(sop_name, model_file, class_file, model_type)
+
+#     if not sop_name or not model_file or not class_file:
+#         return jsonify({"error": "Missing required fields"}), 400
+
+#     # Create a folder for the model based on the sop_name
+#     model_folder = os.path.join(model_stored_path, sop_name)
+#     os.makedirs(model_folder, exist_ok=True)
+
+#     # Save files
+#     model_path = os.path.join(model_folder, model_file.filename)
+#     class_path = os.path.join(model_folder, class_file.filename)
+#     model_file.save(model_path)
+#     class_file.save(class_path)
+
+#     # Connect to database
+#     conn = get_db_connection()
+#     if not conn:
+#         return jsonify({"error": "Database connection failed"}), 500
+#     cursor = conn.cursor()
+
+#     # Check if the SOP already exists in the sop table
+#     cursor.execute("SELECT sop_id FROM sop WHERE sop_name = ?", (sop_name,))
+#     row = cursor.fetchone()
+#     if row:
+#         sop_id = row[0]
+#     else:
+#         # Insert new SOP record and get its id
+#         cursor.execute("INSERT INTO sop (sop_name) VALUES (?)", (sop_name,))
+
+#     # Insert a record in the model table with the file paths
+#     cursor.execute(
+#         "INSERT INTO model (model_path, model_class_label_path, model_type) VALUES (?, ?, ?)",
+#         (model_path, class_path, model_type)
+#     )
+
+#     conn.commit()
+#     conn.close()
+
+#     return jsonify({
+#         "status": "success",
+#         "message": f"Files uploaded successfully to {model_folder} and records saved"
+#     }), 200
+
+
+
+@app.route('/add_instruc', methods=['POST'])
+def add_instruc():
     try:
         data = request.get_json()
         procedures = data.get('procedures', [])
@@ -538,10 +700,10 @@ def add_proc():
             cursor = conn.cursor()
             
             for proc in procedures:
-                sequence_num = proc.get('sequence')
-                sop_names = proc.get('sopNames')  # List of SOP names
-                model_class_paths = proc.get('modelNames')  # List of model class paths
-                class_label = proc.get('className')
+                sequence_num = proc.get('sequenceNumber')
+                sop_names = proc.get('sopName')  # List of SOP names
+                model_class_paths = proc.get('modelLabelPath')  # List of model class paths
+                class_label = proc.get('modelClassName')
                 true_message = proc.get('trueMessage')
                 false_message = proc.get('falseMessage')
 
@@ -623,11 +785,8 @@ def handle_preprocessing(room, camera_name, sop_name):
         return
 
     try:
-        #print(f"Received Data -> Room: {room}, Camera: {camera_name}, SOP: {sop_name}")
-
         rtsp_url = None
         models = defaultdict(list)
-
         cursor = conn.cursor()
 
         cursor.execute("SELECT rtsp_url FROM camera WHERE device_name = ?", (camera_name,))
@@ -635,7 +794,6 @@ def handle_preprocessing(room, camera_name, sop_name):
 
         if camera_row:
             rtsp_url = camera_row[0]
-            #print(f"RTSP URL: {rtsp_url}")
         else:
             print(f"No RTSP URL found for device: {camera_name}")
             return
@@ -645,7 +803,6 @@ def handle_preprocessing(room, camera_name, sop_name):
 
         if sop_row:
             sop_id = sop_row[0]
-            #print(f"SOP ID: {sop_id}")
         else:
             print(f"SOP '{sop_name}' not found.")
             return
@@ -658,18 +815,12 @@ def handle_preprocessing(room, camera_name, sop_name):
             WHERE p.sop_id = ?
             ORDER BY p.sequence ASC
         """, (sop_id,))
-        
+
         procedure_rows = cursor.fetchall()
-        # if procedure_rows:
-        #     print(procedure_rows)
-        # else:
-        #     print(f"No models found for SOP: {sop_name}")
-        #     return
 
         for record in procedure_rows:
             model_class, true_message, false_message, sequence, model_path, label_path, model_type = record
             model_type = model_type.strip().lower()
-            #print(model_type)
 
             if model_type in model_classes:
                 classifier = model_classes[model_type](model_path, label_path)
@@ -684,16 +835,10 @@ def handle_preprocessing(room, camera_name, sop_name):
                 'false_message': false_message
             })
 
-        print(f"Models loaded for {camera_name} in room {room}: {models}")
-
-        
-        room_inference_engine.setdefault(room, {})[camera_name] = models  
-        room_cameras.setdefault(room, set()).add(camera_name)
+        room_inference_engine[room][camera_name] = models
+        room_cameras[room].add(camera_name)
 
         # Ensure each camera has its own video processing thread
-        if room not in video_stream_ready:
-            video_stream_ready[room] = {}
-
         if camera_name not in video_stream_ready[room]:
             video_stream_ready[room][camera_name] = True
             video_thread = Thread(target=read_video_stream, args=(room, camera_name, rtsp_url), daemon=True)
@@ -704,6 +849,7 @@ def handle_preprocessing(room, camera_name, sop_name):
 
     finally:
         conn.close()
+
 
 
 @app.route('/preprocess_input', methods=['POST'])
@@ -734,14 +880,7 @@ def read_video_stream(room, camera_name, rtsp_url):
         return
 
     print(f"📡 Processing RTSP stream for {camera_name} in {room}")
-
     models = room_inference_engine.get(room, {}).get(camera_name, {})
-
-    if room not in sequence_progress:
-        sequence_progress[room] = {}
-
-    if camera_name not in sequence_progress[room]:
-        sequence_progress[room][camera_name] = 0  # Start from sequence 0 (before any step)
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -749,12 +888,13 @@ def read_video_stream(room, camera_name, rtsp_url):
             print(f"Error reading frame from {camera_name} RTSP stream")
             break
 
-        for sequence in sorted(models.keys()):  # Ensure sequence order
-            if sequence != sequence_progress[room][camera_name] + 1:
-                continue  # Skip if it's not the expected next sequence
+        for sequence in sorted(models.keys()):
+            # if sequence != sequence_progress[room][camera_name] + 1:
+            #     continue
+            if sequence <= sequence_progress[room][camera_name]:
+                continue  
 
             sequence_validated = False
-
             while not sequence_validated:
                 for model in models[sequence]:
                     classifier = model['classifier']
@@ -763,34 +903,21 @@ def read_video_stream(room, camera_name, rtsp_url):
                     false_message = model['false_message']
 
                     predicted_class = classifier.predict(frame)
-
                     if isinstance(predicted_class, (tuple, list)):
                         predicted_class = predicted_class[0] if predicted_class else None
 
-                    if predicted_class:
-                        predicted_class = predicted_class.strip().lower()
-                        expected_class = expected_class.strip().lower()
-
-                        print(f"[{camera_name}] Expected: {expected_class}, Predicted: {predicted_class}")
-
-                        if predicted_class == expected_class:
-                            if sequence == sequence_progress[room][camera_name] + 1:
-                                print(f" [{camera_name}] Sequence {sequence} validated in order")
-                                outputEmit(sequence, predicted_class, true_message, frame, room, camera_name)  # 🔹 Emit event specific to camera
-                                sequence_progress[room][camera_name] = sequence 
-                                sequence_validated = True
-                                time.sleep(8)
-                                break
-                            else:
-                                print(f" [{camera_name}] Out-of-order action detected. Expected sequence {sequence_progress[room][camera_name] + 1}.")
-                                outputEmit(sequence, predicted_class, false_message, frame, room, camera_name)
-                        else:
-                            outputEmit(sequence, predicted_class, false_message, frame, room, camera_name)  # 🔹 Emit error specific to camera
-
+                    if predicted_class and predicted_class.strip().lower() == expected_class.strip().lower():
+                        outputEmit(sequence, predicted_class, true_message, frame, room, camera_name)
+                        sequence_progress[room][camera_name] = sequence
+                        sequence_validated = True
+                        time.sleep(8)
+                        break
+                    else:
+                        outputEmit(sequence, predicted_class, false_message, frame, room, camera_name)
+                
                 if not sequence_validated:
                     ret, frame = cap.read()
                     if not ret:
-                        print(f"Error reading frame from {camera_name} RTSP stream")
                         break
 
     cap.release()
@@ -820,263 +947,8 @@ if __name__ == "__main__":
     socketio.run(app, debug=True, port=5000, host='0.0.0.0')
 
 
-
 # @socketio.on('leave')
 # def handle_leave(data):
 #     room = data['room']
 #     leave_room(room)
 #     print(f"Client {request.sid} left the room {room}")
-
-# def read_video_stream(room, camera_name, rtsp_url):
-#     cap = cv2.VideoCapture(rtsp_url)
-#     if not cap.isOpened():
-#         print(f"Error opening RTSP stream: {rtsp_url}")
-#         return
-
-#     print(f"📡 Processing RTSP stream for {camera_name} in {room}")
-
-#     models = room_inference_engine.get(room, {}).get(camera_name, {})
-
-#     # ✅ Initialize tracking for the camera
-#     if room not in sequence_progress:
-#         sequence_progress[room] = {}
-    
-#     if camera_name not in sequence_progress[room]:
-#         sequence_progress[room][camera_name] = 0  # Start from sequence 0 (before any step)
-
-#     while cap.isOpened():
-#         ret, frame = cap.read()
-#         if not ret:
-#             print(f"Error reading frame from {camera_name} RTSP stream")
-#             break
-
-#         for sequence in sorted(models.keys()):  # Ensure sequence order
-#             if sequence != sequence_progress[room][camera_name] + 1:
-#                 continue  # Skip if it's not the expected next sequence
-
-#             sequence_validated = False
-
-#             while not sequence_validated:
-#                 for model in models[sequence]:
-#                     classifier = model['classifier']
-#                     expected_class = model['model_class']
-#                     expected_output = model['expected_output']
-#                     message = model['message']
-
-#                     # 🔍 Predict the class
-#                     predicted_class = classifier.predict(frame)
-
-#                     if isinstance(predicted_class, (tuple, list)):
-#                         predicted_class = predicted_class[0] if predicted_class else None
-
-#                     if predicted_class:
-#                         predicted_class = predicted_class.strip().lower()
-#                         expected_class = expected_class.strip().lower()
-#                         expected_output = expected_output.strip().lower()
-
-#                         print(f"[{camera_name}] Expected: {expected_output}, Predicted: {predicted_class}")
-
-#                         if predicted_class == expected_class and expected_output == 'true':
-#                             if sequence == sequence_progress[room][camera_name] + 1:
-#                                 print(f"✅ [{camera_name}] Sequence {sequence} validated in order")
-#                                 outputEmit(sequence, predicted_class, message, frame, room)
-#                                 sequence_progress[room][camera_name] = sequence  # ✅ Update sequence tracking
-#                                 sequence_validated = True
-#                                 break
-#                             else:
-#                                 print(f"⚠️ [{camera_name}] Out-of-order action detected. Expected sequence {sequence_progress[room][camera_name] + 1}.")
-#                         else:
-#                             error_msg = f"Incorrect action detected for sequence {sequence}. Please try again in order."
-#                             print(error_msg)
-#                             outputEmit(sequence, predicted_class, error_msg, frame, room)
-
-#                 if not sequence_validated:
-#                     ret, frame = cap.read()
-#                     if not ret:
-#                         print(f"Error reading frame from {camera_name} RTSP stream")
-#                         break
-
-#     cap.release()
-#     print(f"🚪 Closing stream for {camera_name} in {room}")
-
-# @app.route('/preprocess_input', methods=['POST'])
-# def preprocess_input():
-#     conn = get_db_connection()
-#     if not conn:
-#         return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
-
-#     try:
-#         data = request.get_json()
-#         if not data:
-#             return jsonify({'status': 'error', 'message': 'No data received'}), 400
-
-#         room = data.get('room')
-#         camera_name = data.get('camera_name')  # Identifies each device
-#         sop_name = data.get('sop_name')
-
-#         if not room or not camera_name or not sop_name:
-#             return jsonify({'status': 'error', 'message': 'Missing required fields'}), 400
-
-#         print(f"Received Data -> Room: {room}, Camera: {camera_name}, SOP: {sop_name}")
-
-#         rtsp_url = None
-#         models = defaultdict(list)
-
-#         cursor = conn.cursor()
-
-#         # Fetch RTSP URL for the specific device
-#         cursor.execute("SELECT rtsp_url FROM camera WHERE device_name = ?", (camera_name,))
-#         camera_row = cursor.fetchone()
-
-#         if camera_row:
-#             rtsp_url = camera_row[0]
-#             print(f"RTSP URL: {rtsp_url}")
-#         else:
-#             print(f"No RTSP URL found for device: {camera_name}")
-#             return jsonify({'status': 'error', 'message': f'No RTSP URL found for device {camera_name}'}), 404
-
-#         # Fetch SOP ID
-#         cursor.execute("SELECT sop_id FROM sop WHERE sop_name = ?", (sop_name,))
-#         sop_row = cursor.fetchone()
-
-#         if sop_row:
-#             sop_id = sop_row[0]
-#             print(f"SOP ID: {sop_id}")
-#         else:
-#             print(f"SOP '{sop_name}' not found.")
-#             return jsonify({'status': 'error', 'message': f'SOP "{sop_name}" not found'}), 404
-
-#         # Fetch associated models for the SOP
-#         cursor.execute("""
-#             SELECT DISTINCT p.model_class, p.output, p.message, p.sequence, 
-#                    m.model_path, m.model_class_label_path, m.model_type 
-#             FROM procedures p
-#             JOIN model m ON p.model_id = m.model_id
-#             WHERE p.sop_id = ?
-#             ORDER BY p.sequence ASC
-#         """, (sop_id,))
-        
-#         procedure_rows = cursor.fetchall()
-#         if procedure_rows:
-#             print(procedure_rows)
-#         else:
-#             print(f"No models found for SOP: {sop_name}")
-#             return jsonify({'status': 'error', 'message': f'No models configured for {sop_name}'})
-
-#         for record in procedure_rows:
-#             model_class, output, message, sequence, model_path, label_path, model_type = record
-#             model_type = model_type.strip().lower()
-#             print(model_type)
-
-#             if model_type in model_classes:
-#                 classifier = model_classes[model_type](model_path, label_path)
-#             else:
-#                 print(f"⚠️ Warning: Unrecognized model type '{model_type}'. Skipping entry.")
-#                 continue 
-
-#             models[sequence].append({
-#                 'classifier': classifier,
-#                 'model_class': model_class.strip().lower(),
-#                 'expected_output': output.strip().lower(),
-#                 'message': message
-#             })
-
-#         print(f"Models loaded for {camera_name} in room {room}: {models}")
-
-#         # 🔄 Store models for each device inside the room
-#         room_inference_engine.setdefault(room, {})[camera_name] = models
-
-#         room_cameras.setdefault(room, set()).add(camera_name)
-
-#         # 🔄 Ensure each device has its own video processing thread
-#         if room not in video_stream_ready:
-#             video_stream_ready[room] = {}
-
-#         if camera_name not in video_stream_ready[room]:
-#             video_stream_ready[room][camera_name] = True
-#             thread = Thread(target=read_video_stream, args=(room, camera_name, rtsp_url), daemon=True)
-#             thread.start()
-
-#         return jsonify({'status': 'success'})
-
-#     except Exception as e:
-#         print(f"Database error: {e}")
-#         return jsonify({'status': 'error', 'message': 'Database error'}), 500
-
-#     finally:
-#         conn.close()
-
-
-# def read_video_stream(room, camera_name, rtsp_url):
-#     cap = cv2.VideoCapture(rtsp_url)
-#     if not cap.isOpened():
-#         print(f"Error opening RTSP stream: {rtsp_url}")
-#         return
-
-#     print(f"📡 Processing RTSP stream for {camera_name} in {room}")
-
-#     models = room_inference_engine.get(room, {}).get(camera_name, {})
-
-#     # ✅ Initialize tracking for the camera
-#     if room not in sequence_progress:
-#         sequence_progress[room] = {}
-    
-#     if camera_name not in sequence_progress[room]:
-#         sequence_progress[room][camera_name] = 0  # Start from sequence 0 (before any step)
-
-#     while cap.isOpened():
-#         ret, frame = cap.read()
-#         if not ret:
-#             print(f"Error reading frame from {camera_name} RTSP stream")
-#             break
-
-#         for sequence in sorted(models.keys()):  # Ensure sequence order
-#             if sequence != sequence_progress[room][camera_name] + 1:
-#                 continue  # Skip if it's not the expected next sequence
-
-#             sequence_validated = False
-
-#             while not sequence_validated:
-#                 for model in models[sequence]:
-#                     classifier = model['classifier']
-#                     expected_class = model['model_class']
-#                     expected_output = model['expected_output']
-#                     message = model['message']
-
-#                     # 🔍 Predict the class
-#                     predicted_class = classifier.predict(frame)
-
-#                     if isinstance(predicted_class, (tuple, list)):
-#                         predicted_class = predicted_class[0] if predicted_class else None
-
-#                     if predicted_class:
-#                         predicted_class = predicted_class.strip().lower()
-#                         expected_class = expected_class.strip().lower()
-#                         expected_output = expected_output.strip().lower()
-
-#                         print(f"[{camera_name}] Expected: {expected_output}, Predicted: {predicted_class}")
-
-#                         if predicted_class == expected_class and expected_output == 'true':
-#                             if sequence == sequence_progress[room][camera_name] + 1:
-#                                 print(f"✅ [{camera_name}] Sequence {sequence} validated in order")
-#                                 outputEmit(sequence, predicted_class, message, frame, room)
-#                                 sequence_progress[room][camera_name] = sequence  # ✅ Update sequence tracking
-#                                 sequence_validated = True
-#                                 break
-#                             else:
-#                                 print(f"⚠️ [{camera_name}] Out-of-order action detected. Expected sequence {sequence_progress[room][camera_name] + 1}.")
-#                         else:
-#                             error_msg = f"Incorrect action detected for sequence {sequence}. Please try again in order."
-#                             print(error_msg)
-#                             outputEmit(sequence, predicted_class, error_msg, frame, room)
-
-#                 if not sequence_validated:
-#                     ret, frame = cap.read()
-#                     if not ret:
-#                         print(f"Error reading frame from {camera_name} RTSP stream")
-#                         break
-
-#     cap.release()
-#     print(f"🚪 Closing stream for {camera_name} in {room}")
-
-

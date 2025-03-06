@@ -55,7 +55,7 @@ body {
     height: 35px;
     font-size: 12px;
     display: flex;    
-    align-items: center;  /* Center vertically */
+    align-items: center;  
     justify-content: flex-start; 
     padding-left: 5px;
     border-radius: 5px;
@@ -123,11 +123,9 @@ h3{
     margin-left: 15px;
     margin-top: 10px;
     align-items: center;
-    /* padding: 10px 20px; */
     border: none;
     width: 85px;
     height: 35px;
-    /* display: flex; */
     gap: 10px;
     cursor: pointer;
     transition: all 0.3s ease-in-out; 
@@ -145,11 +143,9 @@ h3{
     margin-left: 15px;
     margin-top: 20px;
     align-items: center;
-    /* padding: 10px 20px; */
     border: none;
     width: 85px;
     height: 35px;
-    /* display: flex; */
     gap: 10px;
     cursor: pointer;
     transition: all 0.3s ease-in-out; 
@@ -179,25 +175,37 @@ input{
     width: 250px;
     height: 28px;
     margin-left: 5px;
+    box-sizing: border-box;
+    padding-left: 10px;
 }
 
 input:focus {
     outline: none;
-    border: 1px solid white; /* Highlight color */
+    border: 1px solid white;
+}
+
+.input-file{
+    background-color: #25283e;
+}
+
+.custom-checkbox{
+    align-items: center;
+    font-size: 14px;
+    height: 20px;
+    width: 30px;
+    margin-left: 10px;
+    margin-top: 5px;
 }
 
 table {
     border-collapse: collapse;
-    /* box-shadow: 1 5px 10px red; */
     background-color: #25283e; 
     color: white;
     text-align: left;
     overflow: hidden;
     border-radius: 10px;
-    /* border-spacing: 0;  */
     margin-top: 20px;
     width: 100%;
-    /* border: 1px solid white; */
 }
 
 th, td {
@@ -244,12 +252,12 @@ tr:last-child td:last-child {
     border-bottom-right-radius: 10px;
 }  
 
-.btnRemove, .btnRemoveSOP, .btnRemoveModel, .btnRemoveProc{
+.btnRemove, .btn_remove_sop, .btn_remove_model, .btn_remove_instruc{
     background-color: red;
     margin-right: 5px;
 }
 
-.btnRemove:hover, .btnRemoveSOP:hover, .btnRemoveModel:hover, .btnRemoveProc:hover{
+.btnRemove:hover, .btn_remove_sop:hover, .btn_remove_model:hover, .btn_remove_instruc:hover{
     background-color: #810101;
 }
 
@@ -276,7 +284,7 @@ tr:last-child td:last-child {
     width: 100%;
     max-width: 100px;
     align-items: center;
-    padding: 3px;
+    padding: 3px;
 }
 
 .table button{
